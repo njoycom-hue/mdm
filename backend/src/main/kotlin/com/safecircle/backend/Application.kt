@@ -6,6 +6,7 @@ import com.safecircle.backend.routes.consentRoutes
 import com.safecircle.backend.routes.deviceRoutes
 import com.safecircle.backend.routes.eventRoutes
 import com.safecircle.backend.routes.guardianRoutes
+import com.safecircle.backend.routes.installedAppsRoutes
 import com.safecircle.backend.routes.pairingRoutes
 import com.safecircle.backend.routes.settingsRoutes
 import com.safecircle.backend.routes.usageRoutes
@@ -82,5 +83,6 @@ fun Application.module() {
         settingsRoutes()
         guardianRoutes()
         usageRoutes()
+        installedAppsRoutes()
     }
 }

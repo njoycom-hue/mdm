@@ -32,6 +32,7 @@ import com.safecircle.app.pairing.PairingActivity
 import com.safecircle.app.permissions.PermissionSetupActivity
 import com.safecircle.app.sync.EventQueue
 import com.safecircle.app.sync.InactivityCheckWorker
+import com.safecircle.app.sync.InstalledAppsSyncWorker
 import com.safecircle.app.sync.SettingsSyncWorker
 import com.safecircle.app.usage.MyUsageActivity
 import com.safecircle.app.ui.components.PrimaryButton
@@ -67,6 +68,10 @@ class MainActivity : ComponentActivity() {
             EventQueue.schedulePeriodicUpload(this)
             SettingsSyncWorker.schedulePeriodicSync(this)
             InactivityCheckWorker.schedulePeriodicCheck(this)
+            InstalledAppsSyncWorker.schedulePeriodicSync(this)
+            // 보호자가 페어링 직후 바로 앱 목록에서 고를 수 있도록, 사용시간처럼 쌓이길
+            // 기다리지 않고 앱을 열 때마다 즉시 한 번 동기화한다.
+            InstalledAppsSyncWorker.enqueueImmediate(this)
         }
         registerFcmTokenIfNeeded()
 

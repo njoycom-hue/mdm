@@ -16,6 +16,16 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- 의도적으로 READ_SMS / READ_CALL_LOG는 선언하지 않음: docs/ARCHITECTURE.md 참고 -->
 
+    <!-- 안드로이드 11+ 패키지 가시성 제한 대응: QUERY_ALL_PACKAGES 같은 민감 권한 없이도
+         "런처에 노출되는 앱 전체를 봐야 한다"는 용도를 명시적으로 선언해 필요한 만큼만 허용받는다
+         (보호자가 차단/감시할 앱을 실제 목록에서 고를 수 있게 하는 InstalledAppsRepository용). -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
+
     <application
         android:name=".SafeCircleApp"
         android:allowBackup="false"
@@ -126,12 +136,13 @@
             </intent-filter>
         </receiver>
 
-        <!-- 중독자 프로필: 신규 앱 설치를 감지해 보호자에게 알린다 -->
+        <!-- 설치 앱 목록 즉시 재동기화(전체 프로필) + 중독자 프로필의 신규 설치 알림 -->
         <receiver
-            android:name=".install.PackageAddedReceiver"
+            android:name=".install.PackageChangeReceiver"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.PACKAGE_ADDED" />
+                <action android:name="android.intent.action.PACKAGE_REMOVED" />
                 <data android:scheme="package" />
             </intent-filter>
         </receiver>

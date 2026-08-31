@@ -102,6 +102,22 @@ object AppTimeLimits : UUIDTable("app_time_limits") {
 }
 
 /**
+ * 피감독자 기기에 설치된, 런처에 노출되는 앱 전체 목록. 보호자가 차단/감시/시간제한
+ * 대상을 패키지명을 몰라도 실제 목록에서 고를 수 있게 하는 원천 데이터. 동기화할 때마다
+ * 전체를 교체한다(설치/삭제가 그대로 반영되도록).
+ */
+object InstalledApps : UUIDTable("installed_apps") {
+    val wardId = reference("ward_id", Users)
+    val packageName = varchar("package_name", 255)
+    val appLabel = varchar("app_label", 255).default("")
+    val updatedAt = timestamp("updated_at")
+
+    init {
+        uniqueIndex(wardId, packageName)
+    }
+}
+
+/**
  * 즉시(배치 아님) 보호자에게 푸시되는 활동 알림 로그. 관리자 권한 해제 시도, 감시 대상 앱 실행,
  * 신규 앱 설치, 장시간 무활동 등 profileType별로 서로 다른 종류의 이벤트가 여기 쌓인다.
  */

@@ -41,6 +41,9 @@ data class AppTimeLimitSummary(val packageName: String, val appLabel: String, va
 data class ActivityEventRequest(val type: String, val detail: String = "")
 data class ActivityAlertSummary(val type: String, val detail: String, val occurredAtEpochMs: Long)
 
+/** WARD -> 서버 동기화, 서버 -> GUARDIAN 조회 양쪽에서 같은 모양을 쓴다. */
+data class InstalledAppDto(val packageName: String, val appLabel: String)
+
 data class AppUsageDto(
     val packageName: String,
     val appLabel: String,

@@ -51,6 +51,7 @@ import com.safecircle.app.network.ApiClient
 import com.safecircle.app.network.dto.ActivityAlertSummary
 import com.safecircle.app.network.dto.AppTimeLimitSummary
 import com.safecircle.app.network.dto.AppUsageSummary
+import com.safecircle.app.network.dto.InstalledAppDto
 import com.safecircle.app.network.dto.KeywordAlertSummary
 import com.safecircle.app.network.dto.PROFILE_ADDICT
 import com.safecircle.app.network.dto.PROFILE_CHILD
@@ -95,6 +96,7 @@ class WardDetailActivity : ComponentActivity() {
                         loadActivityAlerts = ::loadActivityAlerts,
                         loadSettings = ::loadSettings,
                         loadTimeLimits = ::loadTimeLimits,
+                        loadInstalledApps = ::loadInstalledApps,
                         onSave = ::save
                     )
                 }
@@ -132,6 +134,12 @@ class WardDetailActivity : ComponentActivity() {
         }
     }
 
+    private fun loadInstalledApps(onResult: (List<InstalledAppDto>) -> Unit) {
+        lifecycleScope.launch {
+            runCatching { ApiClient.get(this@WardDetailActivity).service.wardInstalledApps(wardId) }.onSuccess(onResult)
+        }
+    }
+
     private fun save(
         profileType: String,
         keywords: List<String>,
@@ -163,7 +171,7 @@ class WardDetailActivity : ComponentActivity() {
 }
 
 private val PHISHING_KEYWORDS = listOf("검찰청", "금융감독원", "계좌이체", "안전계좌", "압류", "개인정보 확인", "지급정지")
-private const val DEFAULT_MANUAL_TIME_LIMIT_MINUTES = 30
+private val RELAPSE_RISK_KEYWORDS = listOf("대출", "베팅", "환전", "카지노", "토토", "리볼빙", "대부업", "불법사금융", "고리대금")
 
 @Composable
 private fun WardDetailScreen(
@@ -173,6 +181,7 @@ private fun WardDetailScreen(
     loadActivityAlerts: ((List<ActivityAlertSummary>) -> Unit) -> Unit,
     loadSettings: ((WardSettingsResponse) -> Unit) -> Unit,
     loadTimeLimits: ((List<AppTimeLimitSummary>) -> Unit) -> Unit,
+    loadInstalledApps: ((List<InstalledAppDto>) -> Unit) -> Unit,
     onSave: (
         profileType: String,
         keywords: List<String>,
@@ -185,20 +194,19 @@ private fun WardDetailScreen(
 ) {
     var profileType by remember { mutableStateOf(PROFILE_ADDICT) }
     var usage by remember { mutableStateOf<List<AppUsageSummary>>(emptyList()) }
+    var installedApps by remember { mutableStateOf<List<InstalledAppDto>>(emptyList()) }
     var alerts by remember { mutableStateOf<List<KeywordAlertSummary>>(emptyList()) }
     var activityAlerts by remember { mutableStateOf<List<ActivityAlertSummary>>(emptyList()) }
     var keywordsInput by remember { mutableStateOf("") }
     val blockedPackages = remember { mutableListOf<String>().toMutableStateList() }
     val watchedPackages = remember { mutableListOf<String>().toMutableStateList() }
     val timeLimits = remember { mutableStateMapOf<String, Int>() }
-    var manualPackageInput by remember { mutableStateOf("") }
-    var manualWatchedPackageInput by remember { mutableStateOf("") }
-    var manualTimeLimitPackageInput by remember { mutableStateOf("") }
     var blockedDomainsInput by remember { mutableStateOf("") }
     var isSaving by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         loadUsage { usage = it }
+        loadInstalledApps { installedApps = it }
         loadAlerts { alerts = it }
         loadActivityAlerts { activityAlerts = it }
         loadSettings {
@@ -216,15 +224,22 @@ private fun WardDetailScreen(
         }
     }
 
-    // 최근 사용 목록에 없어도 이미 차단/감시/시간제한 설정된 패키지는 선택지에서 빠지지 않도록
-    // 사용시간 목록과 기존 설정을 합쳐 하나의 선택 가능한 앱 목록을 만든다.
-    val pickableApps = remember(usage, blockedPackages.toList(), watchedPackages.toList(), timeLimits.toMap()) {
-        val fromUsage = usage.map { AppUsageSummary(it.packageName, it.appLabel, it.totalForegroundMillis) }
-        val extraPackages = (blockedPackages + watchedPackages + timeLimits.keys)
+    // 패키지명을 몰라도 실제 설치된 앱 목록에서 고를 수 있어야 하므로, 설치 앱 목록을
+    // 기본 선택지로 삼는다. 사용시간이 있으면 정렬/표시용으로 같이 붙이고, 혹시 (기기
+    // 삭제 등으로) 설치 앱 목록에 더는 없지만 이미 차단/감시/시간제한이 걸려 있는
+    // 패키지도 설정을 잃지 않도록 계속 선택지에 남긴다.
+    val pickableApps = remember(installedApps, usage, blockedPackages.toList(), watchedPackages.toList(), timeLimits.toMap()) {
+        val usageByPackage = usage.associateBy { it.packageName }
+        val fromInstalled = installedApps.map { app ->
+            AppUsageSummary(app.packageName, app.appLabel, usageByPackage[app.packageName]?.totalForegroundMillis ?: 0L)
+        }
+        val extraConfigured = (blockedPackages + watchedPackages + timeLimits.keys)
             .distinct()
-            .filter { pkg -> fromUsage.none { it.packageName == pkg } }
-            .map { AppUsageSummary(it, it, 0L) }
-        (fromUsage + extraPackages).sortedByDescending { it.totalForegroundMillis }
+            .filter { pkg -> fromInstalled.none { it.packageName == pkg } }
+            .map { pkg -> usageByPackage[pkg]?.let { AppUsageSummary(it.packageName, it.appLabel, it.totalForegroundMillis) } ?: AppUsageSummary(pkg, pkg, 0L) }
+        (fromInstalled + extraConfigured).sortedWith(
+            compareByDescending<AppUsageSummary> { it.totalForegroundMillis }.thenBy { it.appLabel.ifBlank { it.packageName } }
+        )
     }
 
     ScreenScaffold(title = wardEmail) { padding ->
@@ -238,7 +253,9 @@ private fun WardDetailScreen(
         ) {
             SectionCard(title = "프로필") {
                 Text(
-                    "피보호자 상황에 맞는 프로필을 고르면 그에 맞는 기능만 아래에 표시됩니다.",
+                    "피보호자 상황에 맞는 프로필을 고르면 그에 맞는 기능만 아래에 표시됩니다 — " +
+                        "아동은 유해 콘텐츠로부터 기기를 보호하는 데, 중독 회복은 재정 관리와 " +
+                        "재발 방지에, 부모님은 위험 신호와 무활동 감지에 초점을 둡니다.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -281,9 +298,8 @@ private fun WardDetailScreen(
                     )
                     if (pickableApps.isEmpty()) {
                         EmptyStateText(
-                            "아직 피보호자 기기의 사용시간 데이터가 도착하지 않았습니다(최초 동기화까지 " +
-                                "몇 분 걸릴 수 있어요). 기다리지 않고 지금 바로 설정하려면 아래에 패키지명을 " +
-                                "직접 입력해 추가하세요."
+                            "아직 피보호자 기기의 설치 앱 목록이 도착하지 않았습니다. 피보호자가 앱을 " +
+                                "한 번 실행하면 잠시 후 자동으로 목록이 뜹니다."
                         )
                     } else {
                         pickableApps.forEach { app ->
@@ -297,17 +313,6 @@ private fun WardDetailScreen(
                             )
                         }
                     }
-                    OutlinedTextField(
-                        value = manualTimeLimitPackageInput,
-                        onValueChange = { manualTimeLimitPackageInput = it },
-                        label = { Text("목록에 없는 앱 (패키지명)") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    SecondaryButton("30분 제한으로 추가", onClick = {
-                        val pkg = manualTimeLimitPackageInput.trim()
-                        if (pkg.isNotEmpty()) timeLimits[pkg] = DEFAULT_MANUAL_TIME_LIMIT_MINUTES
-                        manualTimeLimitPackageInput = ""
-                    })
                 }
             }
 
@@ -315,13 +320,13 @@ private fun WardDetailScreen(
                 SectionCard(title = "차단할 앱 선택") {
                     if (pickableApps.isEmpty()) {
                         EmptyStateText(
-                            "아직 피보호자 기기의 사용시간 데이터가 도착하지 않았습니다(최초 동기화까지 " +
-                                "몇 분 걸릴 수 있어요). 기다리지 않고 지금 바로 차단하려면 아래에 패키지명을 " +
-                                "직접 입력해 추가하세요."
+                            "아직 피보호자 기기의 설치 앱 목록이 도착하지 않았습니다. 피보호자가 앱을 " +
+                                "한 번 실행하면 잠시 후 자동으로 목록이 뜹니다."
                         )
                     } else {
                         Text(
-                            "체크한 앱은 실행 즉시 홈으로 이동시켜 완전히 막습니다.",
+                            "도박·베팅·대출 앱 등 재발 위험 앱을 골라 체크하면, 실행 즉시 홈으로 " +
+                                "이동시켜 완전히 막습니다.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -336,30 +341,20 @@ private fun WardDetailScreen(
                             )
                         }
                     }
-                    OutlinedTextField(
-                        value = manualPackageInput,
-                        onValueChange = { manualPackageInput = it },
-                        label = { Text("목록에 없는 앱 (패키지명)") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    SecondaryButton("추가", onClick = {
-                        val pkg = manualPackageInput.trim()
-                        if (pkg.isNotEmpty() && !blockedPackages.contains(pkg)) blockedPackages.add(pkg)
-                        manualPackageInput = ""
-                    })
                 }
 
                 SectionCard(title = "실행 시 알림만 받을 앱") {
                     Text(
-                        "막지는 않되, 피보호자가 이 앱을 실행하면 그때마다 보호자에게 바로 알립니다. " +
-                            "새 앱이 설치될 때도 자동으로 알림이 갑니다(별도 설정 불필요).",
+                        "은행·간편결제 앱처럼 완전히 막을 수는 없지만 재정 상태를 지켜봐야 하는 앱에 " +
+                            "적합합니다. 막지는 않되, 피보호자가 이 앱을 실행하면 그때마다 보호자에게 " +
+                            "바로 알립니다. 새 앱이 설치될 때도 자동으로 알림이 갑니다(별도 설정 불필요).",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     if (pickableApps.isEmpty()) {
                         EmptyStateText(
-                            "아직 피보호자 기기의 사용시간 데이터가 도착하지 않았습니다. 아래에 패키지명을 " +
-                                "직접 입력해 지금 바로 추가할 수 있습니다."
+                            "아직 피보호자 기기의 설치 앱 목록이 도착하지 않았습니다. 피보호자가 앱을 " +
+                                "한 번 실행하면 잠시 후 자동으로 목록이 뜹니다."
                         )
                     } else {
                         pickableApps.forEach { app ->
@@ -373,43 +368,48 @@ private fun WardDetailScreen(
                             )
                         }
                     }
-                    OutlinedTextField(
-                        value = manualWatchedPackageInput,
-                        onValueChange = { manualWatchedPackageInput = it },
-                        label = { Text("목록에 없는 앱 (패키지명)") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    SecondaryButton("추가", onClick = {
-                        val pkg = manualWatchedPackageInput.trim()
-                        if (pkg.isNotEmpty() && !watchedPackages.contains(pkg)) watchedPackages.add(pkg)
-                        manualWatchedPackageInput = ""
-                    })
                 }
             }
 
-            SectionCard(title = if (profileType == PROFILE_ELDERLY) "위험 키워드 감지" else "감시 키워드") {
-                if (profileType == PROFILE_ELDERLY) {
-                    Text(
-                        "보이스피싱에서 자주 쓰이는 표현이 화면에 감지되면 즉시 알립니다.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    SecondaryButton("보이스피싱 의심 키워드 빠르게 추가", onClick = {
-                        val current = splitCsv(keywordsInput)
-                        val merged = (current + PHISHING_KEYWORDS).distinct()
-                        keywordsInput = merged.joinToString(", ")
-                    })
-                    Text(
-                        "12시간 이상 기기 사용이 없으면 무활동으로 보고 자동으로 알림이 갑니다(별도 설정 불필요).",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                } else {
-                    Text(
-                        "쉼표로 구분해 여러 개를 입력할 수 있습니다. 화면에서 매치되면 알림이 갑니다.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+            SectionCard(
+                title = when (profileType) {
+                    PROFILE_ELDERLY -> "위험 신호 감지"
+                    PROFILE_ADDICT -> "재정/재발 위험 키워드"
+                    else -> "감시 키워드"
+                }
+            ) {
+                when (profileType) {
+                    PROFILE_ELDERLY -> {
+                        Text(
+                            "보이스피싱에서 자주 쓰이는 표현이 화면에 감지되면 즉시 알립니다. " +
+                                "심박수 등 실제 생체 신호까지는 폰 자체 센서로 볼 수 없어, 대신 " +
+                                "12시간 이상 기기 사용이 없으면 무활동으로 보고 자동으로 알립니다 " +
+                                "(별도 설정 불필요 — 워치 연동을 원하시면 알려주세요).",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        SecondaryButton("보이스피싱 의심 키워드 빠르게 추가", onClick = {
+                            keywordsInput = (splitCsv(keywordsInput) + PHISHING_KEYWORDS).distinct().joinToString(", ")
+                        })
+                    }
+                    PROFILE_ADDICT -> {
+                        Text(
+                            "재발 위험(도박·대출 등) 관련 표현이 화면에 감지되면 즉시 알립니다. " +
+                                "새 앱이 설치될 때도 자동으로 알림이 갑니다(별도 설정 불필요).",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        SecondaryButton("재발 위험 키워드 빠르게 추가", onClick = {
+                            keywordsInput = (splitCsv(keywordsInput) + RELAPSE_RISK_KEYWORDS).distinct().joinToString(", ")
+                        })
+                    }
+                    else -> {
+                        Text(
+                            "쉼표로 구분해 여러 개를 입력할 수 있습니다. 화면에서 매치되면 알림이 갑니다.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
                 OutlinedTextField(
                     value = keywordsInput,

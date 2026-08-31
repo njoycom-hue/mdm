@@ -23,7 +23,7 @@ object DatabaseFactory {
         transaction {
             SchemaUtils.createMissingTablesAndColumns(
                 Users, Pairings, ConsentEvents, AppUsageEvents, KeywordAlerts, CallEvents,
-                PairingCodes, DeviceTokens, WardSettings, AppTimeLimits, ActivityAlerts
+                PairingCodes, DeviceTokens, WardSettings, AppTimeLimits, ActivityAlerts, InstalledApps
             )
         }
     }

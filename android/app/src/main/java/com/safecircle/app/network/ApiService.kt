@@ -8,6 +8,7 @@ import com.safecircle.app.network.dto.AuthResponse
 import com.safecircle.app.network.dto.BatchUploadRequest
 import com.safecircle.app.network.dto.ClaimPairingRequest
 import com.safecircle.app.network.dto.ConsentEventRequest
+import com.safecircle.app.network.dto.InstalledAppDto
 import com.safecircle.app.network.dto.KeywordAlertSummary
 import com.safecircle.app.network.dto.LoginRequest
 import com.safecircle.app.network.dto.PairingCodeResponse
@@ -77,4 +78,10 @@ interface ApiService {
 
     @GET("/v1/usage/mine")
     suspend fun myUsage(): List<AppUsageSummary>
+
+    @POST("/v1/apps/mine")
+    suspend fun syncInstalledApps(@Body body: List<InstalledAppDto>)
+
+    @GET("/v1/guardian/wards/{wardId}/installed-apps")
+    suspend fun wardInstalledApps(@Path("wardId") wardId: String): List<InstalledAppDto>
 }
