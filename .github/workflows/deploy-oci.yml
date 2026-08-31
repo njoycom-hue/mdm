@@ -44,6 +44,18 @@ jobs:
       - name: 코드 가져오기
         uses: actions/checkout@v4
 
+      - name: 배포 디렉터리 준비 (없으면 생성 + 소유권 이전 — /opt은 기본적으로 root 소유)
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.OCI_HOST }}
+          username: ${{ secrets.OCI_USER }}
+          key: ${{ secrets.OCI_SSH_KEY }}
+          passphrase: ${{ secrets.OCI_SSH_PASSPHRASE }}
+          script: |
+            set -e
+            sudo mkdir -p /opt/safecircle-backend
+            sudo chown -R "$USER":"$USER" /opt/safecircle-backend
+
       - name: 배포 디렉터리로 backend/ 동기화
         uses: appleboy/scp-action@v0.1.7
         with:
