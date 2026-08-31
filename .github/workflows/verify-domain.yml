@@ -1,0 +1,27 @@
+name: mdm.duruone.com 외부 접속 검증
+
+# 이 샌드박스/러너 밖(실제 인터넷)에서 https://mdm.duruone.com이 제대로 붙는지
+# 확인하는 용도. Cloudflare 프록시(주황 구름)를 거쳐 OCI 서버까지 실제로 왕복하는지
+# 검증한다 — deploy-oci-nginx-setup.yml의 "로컬 헬스체크"는 서버 안에서 vhost
+# 라우팅만 확인할 뿐 DNS/Cloudflare/TLS 체인 전체를 검증하지 않기 때문에 별도로 둔다.
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: DNS 확인
+        run: |
+          echo "=== dig mdm.duruone.com ==="
+          dig +short mdm.duruone.com || true
+
+      - name: HTTPS 헬스체크 (실제 도메인, 실제 인증서 체인)
+        run: |
+          set -e
+          echo "=== curl -v https://mdm.duruone.com/health ==="
+          curl -v --max-time 15 https://mdm.duruone.com/health
+          echo ""
+          echo "✅ 외부에서 정상 접속 확인"
