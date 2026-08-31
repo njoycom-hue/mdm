@@ -31,6 +31,7 @@ object ConsentEvents : UUIDTable("consent_events") {
 object AppUsageEvents : UUIDTable("app_usage_events") {
     val wardId = reference("ward_id", Users)
     val packageName = varchar("package_name", 255)
+    val appLabel = varchar("app_label", 255).default("")
     val foregroundMillis = long("foreground_millis")
     val lastUsedAt = timestamp("last_used_at")
     val receivedAt = timestamp("received_at")

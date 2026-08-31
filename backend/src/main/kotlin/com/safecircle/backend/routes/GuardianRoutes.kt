@@ -19,8 +19,6 @@ import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.greaterEq
 import org.jetbrains.exposed.sql.andWhere
 import org.jetbrains.exposed.sql.select
-import org.jetbrains.exposed.sql.selectAll
-import org.jetbrains.exposed.sql.sum
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.time.Instant
 import java.time.temporal.ChronoUnit
@@ -33,7 +31,7 @@ data class WardSummary(val wardId: String, val email: String, val pairedAtEpochM
 data class KeywordAlertSummary(val sourceApp: String, val matchedKeywords: List<String>, val occurredAtEpochMs: Long)
 
 @Serializable
-data class AppUsageSummary(val packageName: String, val totalForegroundMillis: Long)
+data class AppUsageSummary(val packageName: String, val appLabel: String, val totalForegroundMillis: Long)
 
 /** GUARDIAN 전용: 연결된 피보호자 목록, 최근 키워드 알림, 최근 사용시간 요약을 조회한다. */
 fun Route.guardianRoutes() {
@@ -92,15 +90,25 @@ fun Route.guardianRoutes() {
 
             val since = Instant.now().minus(24, ChronoUnit.HOURS)
             val usage = transaction {
-                val sumColumn = AppUsageEvents.foregroundMillis.sum()
+                // appLabel은 패키지명당 하나로 묶이지 않을 수 있어(과거 데이터엔 빈 값) DB에서
+                // groupBy(packageName, appLabel)로 합산하면 같은 앱이 두 줄로 쪼개질 수 있다.
+                // 그래서 행 단위로 가져와 최신순으로 정렬한 뒤 코틀린에서 패키지명 기준으로 합산하고,
+                // 그중 가장 최근에 수신된 비어있지 않은 appLabel을 대표 이름으로 쓴다.
                 AppUsageEvents
-                    .slice(AppUsageEvents.packageName, sumColumn)
-                    .selectAll()
-                    .andWhere { AppUsageEvents.wardId eq wardId }
+                    .select { AppUsageEvents.wardId eq wardId }
                     .andWhere { AppUsageEvents.receivedAt greaterEq since }
-                    .groupBy(AppUsageEvents.packageName)
-                    .orderBy(sumColumn to SortOrder.DESC)
-                    .map { AppUsageSummary(it[AppUsageEvents.packageName], it[sumColumn] ?: 0L) }
+                    .orderBy(AppUsageEvents.receivedAt, SortOrder.DESC)
+                    .groupBy { it[AppUsageEvents.packageName] }
+                    .map { (packageName, rows) ->
+                        val label = rows.firstOrNull { it[AppUsageEvents.appLabel].isNotBlank() }
+                            ?.get(AppUsageEvents.appLabel) ?: packageName
+                        AppUsageSummary(
+                            packageName = packageName,
+                            appLabel = label,
+                            totalForegroundMillis = rows.sumOf { it[AppUsageEvents.foregroundMillis] }
+                        )
+                    }
+                    .sortedByDescending { it.totalForegroundMillis }
             }
             call.respond(usage)
         }

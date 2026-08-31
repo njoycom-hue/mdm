@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -31,6 +32,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -44,6 +46,7 @@ import com.safecircle.app.network.dto.WardSettingsResponse
 import com.safecircle.app.ui.components.EmptyStateText
 import com.safecircle.app.ui.components.PrimaryButton
 import com.safecircle.app.ui.components.ScreenScaffold
+import com.safecircle.app.ui.components.SecondaryButton
 import com.safecircle.app.ui.components.SectionCard
 import com.safecircle.app.ui.components.Spacing
 import com.safecircle.app.ui.theme.SafeCircleTheme
@@ -132,7 +135,8 @@ private fun WardDetailScreen(
     var usage by remember { mutableStateOf<List<AppUsageSummary>>(emptyList()) }
     var alerts by remember { mutableStateOf<List<KeywordAlertSummary>>(emptyList()) }
     var keywordsInput by remember { mutableStateOf("") }
-    var blockedPackagesInput by remember { mutableStateOf("") }
+    val blockedPackages = remember { mutableListOf<String>().toMutableStateList() }
+    var manualPackageInput by remember { mutableStateOf("") }
     var blockedDomainsInput by remember { mutableStateOf("") }
     var isSaving by remember { mutableStateOf(false) }
 
@@ -141,9 +145,20 @@ private fun WardDetailScreen(
         loadAlerts { alerts = it }
         loadSettings {
             keywordsInput = it.keywords.joinToString(", ")
-            blockedPackagesInput = it.blockedPackages.joinToString(", ")
+            blockedPackages.clear()
+            blockedPackages.addAll(it.blockedPackages)
             blockedDomainsInput = it.blockedDomains.joinToString(", ")
         }
+    }
+
+    // 최근 사용 목록에 없어도 이미 차단 설정된 패키지는(예: 최근 24시간 안 켠 앱) 선택지에서 빠지지
+    // 않도록, 사용시간 목록과 기존 차단 목록을 합쳐 하나의 선택 가능한 앱 목록을 만든다.
+    val pickableApps = remember(usage, blockedPackages.toList()) {
+        val fromUsage = usage.map { AppUsageSummary(it.packageName, it.appLabel, it.totalForegroundMillis) }
+        val extraBlocked = blockedPackages
+            .filter { pkg -> fromUsage.none { it.packageName == pkg } }
+            .map { AppUsageSummary(it, it, 0L) }
+        (fromUsage + extraBlocked).sortedByDescending { it.totalForegroundMillis }
     }
 
     ScreenScaffold(title = wardEmail) { padding ->
@@ -172,6 +187,42 @@ private fun WardDetailScreen(
                 }
             }
 
+            SectionCard(title = "차단할 앱 선택") {
+                if (pickableApps.isEmpty()) {
+                    EmptyStateText("아직 사용시간 데이터가 없습니다. 잠시 후 다시 확인해주세요.")
+                } else {
+                    Text(
+                        "피보호자 기기에서 최근 실행된 앱 목록입니다. 체크한 앱은 접근성 서비스가 즉시 차단합니다.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    pickableApps.forEach { app ->
+                        AppPickRow(
+                            app = app,
+                            checked = blockedPackages.contains(app.packageName),
+                            onCheckedChange = { checked ->
+                                if (checked) {
+                                    if (!blockedPackages.contains(app.packageName)) blockedPackages.add(app.packageName)
+                                } else {
+                                    blockedPackages.remove(app.packageName)
+                                }
+                            }
+                        )
+                    }
+                }
+                OutlinedTextField(
+                    value = manualPackageInput,
+                    onValueChange = { manualPackageInput = it },
+                    label = { Text("목록에 없는 앱 (패키지명)") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                SecondaryButton("추가", onClick = {
+                    val pkg = manualPackageInput.trim()
+                    if (pkg.isNotEmpty() && !blockedPackages.contains(pkg)) blockedPackages.add(pkg)
+                    manualPackageInput = ""
+                })
+            }
+
             SectionCard(title = "감시 정책 편집") {
                 Text(
                     "쉼표로 구분해 여러 개를 입력할 수 있습니다.",
@@ -182,12 +233,6 @@ private fun WardDetailScreen(
                     value = keywordsInput,
                     onValueChange = { keywordsInput = it },
                     label = { Text("키워드") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = blockedPackagesInput,
-                    onValueChange = { blockedPackagesInput = it },
-                    label = { Text("차단 앱 패키지명") },
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
@@ -203,7 +248,7 @@ private fun WardDetailScreen(
                 } else {
                     PrimaryButton("정책 저장", onClick = {
                         isSaving = true
-                        onSaveSettings(splitCsv(keywordsInput), splitCsv(blockedPackagesInput), splitCsv(blockedDomainsInput)) {
+                        onSaveSettings(splitCsv(keywordsInput), blockedPackages.toList(), splitCsv(blockedDomainsInput)) {
                             isSaving = false
                         }
                     })
@@ -217,7 +262,7 @@ private fun WardDetailScreen(
 private fun UsageRow(usage: AppUsageSummary, maxMillis: Long) {
     Column(modifier = Modifier.fillMaxWidth().padding(vertical = Spacing.xs)) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(usage.packageName, style = MaterialTheme.typography.bodyMedium)
+            Text(usage.appLabel.ifBlank { usage.packageName }, style = MaterialTheme.typography.bodyMedium)
             Text(
                 formatDuration(usage.totalForegroundMillis),
                 style = MaterialTheme.typography.labelLarge,
@@ -238,6 +283,25 @@ private fun UsageRow(usage: AppUsageSummary, maxMillis: Long) {
                     .height(6.dp)
                     .clip(RoundedCornerShape(3.dp))
                     .background(MaterialTheme.colorScheme.primary)
+            )
+        }
+    }
+}
+
+@Composable
+private fun AppPickRow(app: AppUsageSummary, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+    ) {
+        Checkbox(checked = checked, onCheckedChange = onCheckedChange)
+        Column(modifier = Modifier.weight(1f)) {
+            Text(app.appLabel.ifBlank { app.packageName }, style = MaterialTheme.typography.bodyMedium)
+            Text(
+                if (app.totalForegroundMillis > 0) "${app.packageName} · ${formatDuration(app.totalForegroundMillis)}" else app.packageName,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }

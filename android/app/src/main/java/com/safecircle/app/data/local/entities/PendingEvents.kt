@@ -7,6 +7,7 @@ import androidx.room.PrimaryKey
 data class PendingUsageEvent(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val packageName: String,
+    val appLabel: String,
     val foregroundMillis: Long,
     val lastUsedEpochMs: Long
 )

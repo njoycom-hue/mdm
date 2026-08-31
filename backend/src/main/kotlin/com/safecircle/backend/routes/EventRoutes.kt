@@ -23,7 +23,12 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import java.time.Instant
 
 @Serializable
-data class AppUsageEventRequest(val packageName: String, val foregroundMillis: Long, val lastUsedEpochMs: Long)
+data class AppUsageEventRequest(
+    val packageName: String,
+    val appLabel: String = "",
+    val foregroundMillis: Long,
+    val lastUsedEpochMs: Long
+)
 
 @Serializable
 data class KeywordAlertRequest(val sourceApp: String, val matchedKeywords: List<String>, val occurredAtEpochMs: Long)
@@ -56,6 +61,7 @@ fun Route.eventRoutes() {
                     AppUsageEvents.insert {
                         it[wardId] = principal.userId
                         it[packageName] = usage.packageName
+                        it[appLabel] = usage.appLabel
                         it[foregroundMillis] = usage.foregroundMillis
                         it[lastUsedAt] = Instant.ofEpochMilli(usage.lastUsedEpochMs)
                         it[receivedAt] = Instant.now()

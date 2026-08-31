@@ -35,9 +35,16 @@ class EventQueue(private val context: Context) {
         }
     }
 
-    fun enqueueUsageSnapshot(packageName: String, foregroundMillis: Long, lastUsedEpochMs: Long) {
+    fun enqueueUsageSnapshot(packageName: String, appLabel: String, foregroundMillis: Long, lastUsedEpochMs: Long) {
         scope.launch {
-            dao.insertUsage(PendingUsageEvent(packageName = packageName, foregroundMillis = foregroundMillis, lastUsedEpochMs = lastUsedEpochMs))
+            dao.insertUsage(
+                PendingUsageEvent(
+                    packageName = packageName,
+                    appLabel = appLabel,
+                    foregroundMillis = foregroundMillis,
+                    lastUsedEpochMs = lastUsedEpochMs
+                )
+            )
         }
     }
 
