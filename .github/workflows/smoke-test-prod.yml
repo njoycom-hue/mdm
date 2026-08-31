@@ -1,0 +1,112 @@
+name: 운영 API 스모크 테스트
+
+# 지금까지는 /health만 검증했다 — 이 워크플로우는 실제 프로덕션(https://mdm.duruone.com)에
+# 대고 앱이 실제로 쓰는 전체 흐름을 처음부터 끝까지 확인한다:
+#   회원가입(WARD/GUARDIAN) -> 동의 기록 -> 페어링 코드 발급/연결
+#   -> 키워드 알림 배치 업로드 -> 보호자 대시보드 조회 -> 정책 편집/동기화
+# 매 실행마다 고유한 테스트 계정(smoketest+<run_id>@...)을 새로 만들어 기존 데이터와
+# 안 겹치게 한다. 실패하면 어느 단계인지 바로 알 수 있도록 각 단계마다 상태 확인.
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  smoke-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: 전체 API 흐름 검증
+        run: |
+          set -e
+          BASE="https://mdm.duruone.com"
+          RUN_ID="${{ github.run_id }}"
+          WARD_EMAIL="smoketest-ward-${RUN_ID}@example.com"
+          GUARDIAN_EMAIL="smoketest-guardian-${RUN_ID}@example.com"
+          PASSWORD="SmokeTest123!"
+
+          check() {
+            local label="$1" expected="$2" actual="$3"
+            if [ "$actual" != "$expected" ]; then
+              echo "❌ $label — 기대: $expected, 실제: $actual"
+              exit 1
+            fi
+            echo "✅ $label"
+          }
+
+          echo "=== 1) WARD 회원가입 ==="
+          WARD_RES=$(curl -sS -w "\n%{http_code}" -X POST "$BASE/v1/auth/register" \
+            -H "Content-Type: application/json" \
+            -d "{\"email\":\"$WARD_EMAIL\",\"password\":\"$PASSWORD\",\"role\":\"WARD\"}")
+          WARD_CODE=$(echo "$WARD_RES" | tail -1)
+          WARD_BODY=$(echo "$WARD_RES" | sed '$d')
+          check "WARD 회원가입 HTTP 201" "201" "$WARD_CODE"
+          WARD_TOKEN=$(echo "$WARD_BODY" | jq -r .token)
+          WARD_ID=$(echo "$WARD_BODY" | jq -r .userId)
+
+          echo "=== 2) GUARDIAN 회원가입 ==="
+          GUARDIAN_RES=$(curl -sS -w "\n%{http_code}" -X POST "$BASE/v1/auth/register" \
+            -H "Content-Type: application/json" \
+            -d "{\"email\":\"$GUARDIAN_EMAIL\",\"password\":\"$PASSWORD\",\"role\":\"GUARDIAN\"}")
+          GUARDIAN_CODE=$(echo "$GUARDIAN_RES" | tail -1)
+          GUARDIAN_BODY=$(echo "$GUARDIAN_RES" | sed '$d')
+          check "GUARDIAN 회원가입 HTTP 201" "201" "$GUARDIAN_CODE"
+          GUARDIAN_TOKEN=$(echo "$GUARDIAN_BODY" | jq -r .token)
+
+          echo "=== 3) WARD 동의 기록 ==="
+          CONSENT_CODE=$(curl -sS -o /dev/null -w "%{http_code}" -X POST "$BASE/v1/consents" \
+            -H "Content-Type: application/json" -H "Authorization: Bearer $WARD_TOKEN" \
+            -d "{\"deviceId\":\"smoketest-device-${RUN_ID}\",\"appVersion\":\"0.1.0-smoketest\"}")
+          check "동의 기록 HTTP 201" "201" "$CONSENT_CODE"
+
+          echo "=== 4) WARD 페어링 코드 발급 ==="
+          PAIR_RES=$(curl -sS -X POST "$BASE/v1/pairing/issue" -H "Authorization: Bearer $WARD_TOKEN")
+          PAIR_CODE=$(echo "$PAIR_RES" | jq -r .code)
+          if [ -z "$PAIR_CODE" ] || [ "$PAIR_CODE" = "null" ]; then
+            echo "❌ 페어링 코드 발급 실패: $PAIR_RES"; exit 1
+          fi
+          echo "✅ 페어링 코드 발급: $PAIR_CODE"
+
+          echo "=== 5) GUARDIAN 페어링 코드 연결 ==="
+          CLAIM_CODE=$(curl -sS -o /dev/null -w "%{http_code}" -X POST "$BASE/v1/pairing/claim" \
+            -H "Content-Type: application/json" -H "Authorization: Bearer $GUARDIAN_TOKEN" \
+            -d "{\"pairingCode\":\"$PAIR_CODE\"}")
+          check "페어링 연결 HTTP 201" "201" "$CLAIM_CODE"
+
+          echo "=== 6) GUARDIAN 연결된 피보호자 목록 조회 ==="
+          WARDS_RES=$(curl -sS "$BASE/v1/guardian/wards" -H "Authorization: Bearer $GUARDIAN_TOKEN")
+          FOUND_WARD=$(echo "$WARDS_RES" | jq -r --arg email "$WARD_EMAIL" '.[] | select(.email==$email) | .wardId')
+          if [ -z "$FOUND_WARD" ]; then
+            echo "❌ 방금 연결한 ward가 목록에 없음: $WARDS_RES"; exit 1
+          fi
+          echo "✅ 피보호자 목록에서 확인됨 (wardId=$FOUND_WARD)"
+
+          echo "=== 7) WARD 키워드 알림 배치 업로드 ==="
+          EVENT_CODE=$(curl -sS -o /dev/null -w "%{http_code}" -X POST "$BASE/v1/events/batch" \
+            -H "Content-Type: application/json" -H "Authorization: Bearer $WARD_TOKEN" \
+            -d "{\"keywordAlerts\":[{\"sourceApp\":\"com.example.testbank\",\"matchedKeywords\":[\"스모크테스트키워드\"],\"occurredAtEpochMs\":$(date +%s000)}]}")
+          check "이벤트 배치 업로드 HTTP 202" "202" "$EVENT_CODE"
+
+          echo "=== 8) GUARDIAN 키워드 알림 조회 (방금 올린 게 보이는지) ==="
+          ALERTS_RES=$(curl -sS "$BASE/v1/guardian/wards/$FOUND_WARD/alerts" -H "Authorization: Bearer $GUARDIAN_TOKEN")
+          ALERT_FOUND=$(echo "$ALERTS_RES" | jq -r '[.[] | select(.matchedKeywords[]? == "스모크테스트키워드")] | length')
+          if [ "$ALERT_FOUND" -lt 1 ]; then
+            echo "❌ 방금 올린 키워드 알림이 안 보임: $ALERTS_RES"; exit 1
+          fi
+          echo "✅ 키워드 알림 조회 확인됨"
+
+          echo "=== 9) GUARDIAN 정책 편집 ==="
+          SETTINGS_CODE=$(curl -sS -o /dev/null -w "%{http_code}" -X PUT "$BASE/v1/settings/ward/$FOUND_WARD" \
+            -H "Content-Type: application/json" -H "Authorization: Bearer $GUARDIAN_TOKEN" \
+            -d '{"keywords":["스모크","테스트"],"blockedPackages":["com.example.testapp"],"blockedDomains":["example-blocked.com"]}')
+          check "정책 저장 HTTP 200" "200" "$SETTINGS_CODE"
+
+          echo "=== 10) WARD 정책 동기화 확인 (방금 보호자가 저장한 게 보이는지) ==="
+          MINE_RES=$(curl -sS "$BASE/v1/settings/mine" -H "Authorization: Bearer $WARD_TOKEN")
+          KEYWORD_FOUND=$(echo "$MINE_RES" | jq -r '.keywords | index("스모크")')
+          if [ "$KEYWORD_FOUND" = "null" ]; then
+            echo "❌ 보호자가 설정한 키워드가 WARD 쪽에 동기화 안 됨: $MINE_RES"; exit 1
+          fi
+          echo "✅ 정책 동기화 확인됨"
+
+          echo ""
+          echo "🎉 전체 흐름(회원가입~정책동기화) 정상 동작 확인"
