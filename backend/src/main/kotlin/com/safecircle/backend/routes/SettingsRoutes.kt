@@ -19,19 +19,30 @@ import org.jetbrains.exposed.sql.update
 import java.time.Instant
 import java.util.UUID
 
+/** 아동=유해사이트차단+시간제한, 중독자=차단+실행알림+신규설치알림, 부모님=위험키워드감지+무활동감지. */
+private val VALID_PROFILE_TYPES = setOf("CHILD", "ADDICT", "ELDERLY")
+
 @Serializable
 data class WardSettingsResponse(
+    val profileType: String,
     val keywords: List<String>,
     val blockedPackages: List<String>,
-    val blockedDomains: List<String>
+    val blockedDomains: List<String>,
+    val watchedPackages: List<String>,
+    val appTimeLimits: List<AppTimeLimitDto> = emptyList()
 )
 
 @Serializable
 data class WardSettingsRequest(
+    val profileType: String,
     val keywords: List<String>,
     val blockedPackages: List<String>,
-    val blockedDomains: List<String>
+    val blockedDomains: List<String>,
+    val watchedPackages: List<String>
 )
+
+@Serializable
+data class AppTimeLimitDto(val packageName: String, val dailyLimitMinutes: Int)
 
 private fun csv(list: List<String>) = list.joinToString(",")
 private fun fromCsv(csv: String) = if (csv.isBlank()) emptyList() else csv.split(",")
@@ -69,19 +80,27 @@ fun Route.settingsRoutes() {
             }
 
             val body = call.receive<WardSettingsRequest>()
+            if (body.profileType !in VALID_PROFILE_TYPES) {
+                call.respond(HttpStatusCode.BadRequest, "profileType must be one of $VALID_PROFILE_TYPES")
+                return@put
+            }
             transaction {
                 val updated = WardSettings.update({ WardSettings.wardId eq wardId }) {
+                    it[profileType] = body.profileType
                     it[keywordsCsv] = csv(body.keywords)
                     it[blockedPackagesCsv] = csv(body.blockedPackages)
                     it[blockedDomainsCsv] = csv(body.blockedDomains)
+                    it[watchedPackagesCsv] = csv(body.watchedPackages)
                     it[updatedAt] = Instant.now()
                 }
                 if (updated == 0) {
                     WardSettings.insert {
                         it[WardSettings.wardId] = wardId
+                        it[profileType] = body.profileType
                         it[keywordsCsv] = csv(body.keywords)
                         it[blockedPackagesCsv] = csv(body.blockedPackages)
                         it[blockedDomainsCsv] = csv(body.blockedDomains)
+                        it[watchedPackagesCsv] = csv(body.watchedPackages)
                         it[updatedAt] = Instant.now()
                     }
                 }
@@ -91,15 +110,26 @@ fun Route.settingsRoutes() {
     }
 }
 
-private fun loadSettings(wardId: UUID): WardSettingsResponse = transaction {
-    val row = WardSettings.select { WardSettings.wardId eq wardId }.singleOrNull()
-    if (row == null) {
-        WardSettingsResponse(emptyList(), emptyList(), emptyList())
+private fun loadSettings(wardId: UUID): WardSettingsResponse {
+    val row = transaction { WardSettings.select { WardSettings.wardId eq wardId }.singleOrNull() }
+    val timeLimits = loadTimeLimits(wardId).map { AppTimeLimitDto(it.packageName, it.dailyLimitMinutes) }
+    return if (row == null) {
+        WardSettingsResponse(
+            profileType = "ADDICT",
+            keywords = emptyList(),
+            blockedPackages = emptyList(),
+            blockedDomains = emptyList(),
+            watchedPackages = emptyList(),
+            appTimeLimits = timeLimits
+        )
     } else {
         WardSettingsResponse(
+            profileType = row[WardSettings.profileType],
             keywords = fromCsv(row[WardSettings.keywordsCsv]),
             blockedPackages = fromCsv(row[WardSettings.blockedPackagesCsv]),
-            blockedDomains = fromCsv(row[WardSettings.blockedDomainsCsv])
+            blockedDomains = fromCsv(row[WardSettings.blockedDomainsCsv]),
+            watchedPackages = fromCsv(row[WardSettings.watchedPackagesCsv]),
+            appTimeLimits = timeLimits
         )
     }
 }

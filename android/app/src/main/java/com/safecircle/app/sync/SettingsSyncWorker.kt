@@ -17,9 +17,12 @@ class SettingsSyncWorker(appContext: Context, params: WorkerParameters) : Corout
         return try {
             val settings = ApiClient.get(applicationContext).service.myWardSettings()
             PolicyRepository(applicationContext).update(
+                profileType = settings.profileType,
                 keywords = settings.keywords,
                 blockedPackages = settings.blockedPackages,
-                blockedDomains = settings.blockedDomains
+                blockedDomains = settings.blockedDomains,
+                watchedPackages = settings.watchedPackages,
+                appTimeLimits = settings.appTimeLimits
             )
             Result.success()
         } catch (e: Exception) {

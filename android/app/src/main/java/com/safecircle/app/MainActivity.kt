@@ -31,7 +31,9 @@ import com.safecircle.app.onboarding.ConsentStore
 import com.safecircle.app.pairing.PairingActivity
 import com.safecircle.app.permissions.PermissionSetupActivity
 import com.safecircle.app.sync.EventQueue
+import com.safecircle.app.sync.InactivityCheckWorker
 import com.safecircle.app.sync.SettingsSyncWorker
+import com.safecircle.app.usage.MyUsageActivity
 import com.safecircle.app.ui.components.PrimaryButton
 import com.safecircle.app.ui.components.ScreenColumn
 import com.safecircle.app.ui.components.ScreenScaffold
@@ -64,6 +66,7 @@ class MainActivity : ComponentActivity() {
         if (role == "WARD") {
             EventQueue.schedulePeriodicUpload(this)
             SettingsSyncWorker.schedulePeriodicSync(this)
+            InactivityCheckWorker.schedulePeriodicCheck(this)
         }
         registerFcmTokenIfNeeded()
 
@@ -74,7 +77,8 @@ class MainActivity : ComponentActivity() {
                         role = role ?: "WARD",
                         onOpenPermissionSetup = { startActivity(Intent(this, PermissionSetupActivity::class.java)) },
                         onOpenPairing = { startActivity(Intent(this, PairingActivity::class.java)) },
-                        onOpenDashboard = { startActivity(Intent(this, GuardianDashboardActivity::class.java)) }
+                        onOpenDashboard = { startActivity(Intent(this, GuardianDashboardActivity::class.java)) },
+                        onOpenMyUsage = { startActivity(Intent(this, MyUsageActivity::class.java)) }
                     )
                 }
             }
@@ -96,7 +100,8 @@ private fun HomeScreen(
     role: String,
     onOpenPermissionSetup: () -> Unit,
     onOpenPairing: () -> Unit,
-    onOpenDashboard: () -> Unit
+    onOpenDashboard: () -> Unit,
+    onOpenMyUsage: () -> Unit
 ) {
     ScreenScaffold(title = "SafeCircle") { padding ->
         ScreenColumn(modifier = Modifier.padding(padding), spacing = Spacing.lg) {
@@ -121,6 +126,7 @@ private fun HomeScreen(
 
             if (role == "WARD") {
                 PrimaryButton("권한 설정 점검", onOpenPermissionSetup)
+                SecondaryButton("내 사용시간 보기", onOpenMyUsage)
                 SecondaryButton("보호자 연결 코드 보기", onOpenPairing)
             } else {
                 PrimaryButton("대시보드 열기", onOpenDashboard)

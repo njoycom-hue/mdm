@@ -11,17 +11,35 @@ data class ClaimPairingRequest(val pairingCode: String)
 
 data class RegisterFcmTokenRequest(val fcmToken: String)
 
+/** 아동=유해사이트차단+시간제한, 중독자=차단+실행알림+신규설치알림, 부모님=위험키워드감지+무활동감지 */
+const val PROFILE_CHILD = "CHILD"
+const val PROFILE_ADDICT = "ADDICT"
+const val PROFILE_ELDERLY = "ELDERLY"
+
 data class WardSettingsResponse(
+    val profileType: String,
     val keywords: List<String>,
     val blockedPackages: List<String>,
-    val blockedDomains: List<String>
+    val blockedDomains: List<String>,
+    val watchedPackages: List<String>,
+    val appTimeLimits: List<AppTimeLimitDto>
 )
 
 data class WardSettingsRequest(
+    val profileType: String,
     val keywords: List<String>,
     val blockedPackages: List<String>,
-    val blockedDomains: List<String>
+    val blockedDomains: List<String>,
+    val watchedPackages: List<String>
 )
+
+/** WARD 로컬 동기화용(라벨 불필요). 보호자 편집 화면에서는 [AppTimeLimitSummary]를 쓴다. */
+data class AppTimeLimitDto(val packageName: String, val dailyLimitMinutes: Int)
+
+data class AppTimeLimitSummary(val packageName: String, val appLabel: String, val dailyLimitMinutes: Int)
+
+data class ActivityEventRequest(val type: String, val detail: String = "")
+data class ActivityAlertSummary(val type: String, val detail: String, val occurredAtEpochMs: Long)
 
 data class AppUsageDto(
     val packageName: String,

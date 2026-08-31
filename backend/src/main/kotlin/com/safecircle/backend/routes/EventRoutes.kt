@@ -1,5 +1,6 @@
 package com.safecircle.backend.routes
 
+import com.safecircle.backend.db.ActivityAlerts
 import com.safecircle.backend.db.AppUsageEvents
 import com.safecircle.backend.db.CallEvents
 import com.safecircle.backend.db.DeviceTokens
@@ -48,6 +49,9 @@ data class BatchUploadRequest(
     val callEvents: List<CallEventRequest> = emptyList()
 )
 
+@Serializable
+data class ActivityEventRequest(val type: String, val detail: String = "")
+
 /** 클라이언트의 5~15분 배치 업로드를 수신한다. 키워드 매치가 포함되면 즉시 FCM 푸시로 이어진다. */
 fun Route.eventRoutes() {
     authenticate("auth-jwt") {
@@ -87,7 +91,40 @@ fun Route.eventRoutes() {
             }
 
             if (body.keywordAlerts.isNotEmpty()) {
-                notifyGuardians(principal.userId, body.keywordAlerts.flatMap { it.matchedKeywords }.distinct())
+                val (wardEmail, tokens) = guardianTokensFor(principal.userId)
+                val matchedKeywords = body.keywordAlerts.flatMap { it.matchedKeywords }.distinct()
+                tokens.forEach { token ->
+                    runCatching { FcmService.sendKeywordAlert(token, wardEmail, matchedKeywords) }
+                        .onFailure { /* TODO: 구조화된 로깅 + 만료 토큰 정리 */ }
+                }
+            }
+
+            call.respond(HttpStatusCode.Accepted)
+        }
+
+        /**
+         * 관리자 권한 해제 시도, 감시 대상 앱 실행, 신규 앱 설치, 장시간 무활동 등을
+         * 즉시(배치 아님) 기록하고 보호자에게 푸시한다. profileType에 따라 안드로이드
+         * 클라이언트가 어떤 type을 언제 보낼지 스스로 판단한다.
+         */
+        post("/v1/events/activity") {
+            val principal = call.userPrincipal()
+            principal.requireRole("WARD")
+            val body = call.receive<ActivityEventRequest>()
+
+            transaction {
+                ActivityAlerts.insert {
+                    it[wardId] = principal.userId
+                    it[type] = body.type
+                    it[detail] = body.detail
+                    it[occurredAt] = Instant.now()
+                }
+            }
+
+            val (wardEmail, tokens) = guardianTokensFor(principal.userId)
+            tokens.forEach { token ->
+                runCatching { FcmService.sendActivityAlert(token, wardEmail, body.type, body.detail) }
+                    .onFailure { /* TODO: 구조화된 로깅 + 만료 토큰 정리 */ }
             }
 
             call.respond(HttpStatusCode.Accepted)
@@ -95,16 +132,9 @@ fun Route.eventRoutes() {
     }
 }
 
-private fun notifyGuardians(wardId: java.util.UUID, matchedKeywords: List<String>) {
-    val (wardEmail, tokens) = transaction {
-        val email = Users.select { Users.id eq wardId }.single()[Users.email]
-        val guardianIds = Pairings.select { Pairings.wardId eq wardId }.map { it[Pairings.guardianId] }
-        val fcmTokens = DeviceTokens.select { DeviceTokens.userId inList guardianIds }.map { it[DeviceTokens.fcmToken] }
-        email to fcmTokens
-    }
-
-    tokens.forEach { token ->
-        runCatching { FcmService.sendKeywordAlert(token, wardEmail, matchedKeywords) }
-            .onFailure { /* TODO: 구조화된 로깅 + 만료 토큰 정리 */ }
-    }
+private fun guardianTokensFor(wardId: java.util.UUID): Pair<String, List<String>> = transaction {
+    val email = Users.select { Users.id eq wardId }.single()[Users.email]
+    val guardianIds = Pairings.select { Pairings.wardId eq wardId }.map { it[Pairings.guardianId] }
+    val fcmTokens = DeviceTokens.select { DeviceTokens.userId inList guardianIds }.map { it[DeviceTokens.fcmToken] }
+    email to fcmTokens
 }

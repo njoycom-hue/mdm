@@ -1,5 +1,8 @@
 package com.safecircle.app.network
 
+import com.safecircle.app.network.dto.ActivityAlertSummary
+import com.safecircle.app.network.dto.ActivityEventRequest
+import com.safecircle.app.network.dto.AppTimeLimitSummary
 import com.safecircle.app.network.dto.AppUsageSummary
 import com.safecircle.app.network.dto.AuthResponse
 import com.safecircle.app.network.dto.BatchUploadRequest
@@ -59,4 +62,19 @@ interface ApiService {
 
     @GET("/v1/guardian/wards/{wardId}/usage")
     suspend fun wardUsage(@Path("wardId") wardId: String): List<AppUsageSummary>
+
+    @GET("/v1/guardian/wards/{wardId}/time-limits")
+    suspend fun wardTimeLimits(@Path("wardId") wardId: String): List<AppTimeLimitSummary>
+
+    @PUT("/v1/guardian/wards/{wardId}/time-limits")
+    suspend fun updateWardTimeLimits(@Path("wardId") wardId: String, @Body body: List<AppTimeLimitSummary>)
+
+    @GET("/v1/guardian/wards/{wardId}/activity-alerts")
+    suspend fun wardActivityAlerts(@Path("wardId") wardId: String): List<ActivityAlertSummary>
+
+    @POST("/v1/events/activity")
+    suspend fun reportActivityEvent(@Body body: ActivityEventRequest)
+
+    @GET("/v1/usage/mine")
+    suspend fun myUsage(): List<AppUsageSummary>
 }

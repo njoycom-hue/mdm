@@ -56,6 +56,10 @@
             android:name=".guardian.WardDetailActivity"
             android:exported="false" />
 
+        <activity
+            android:name=".usage.MyUsageActivity"
+            android:exported="false" />
+
         <service
             android:name=".notification.FcmMessagingService"
             android:exported="false">
@@ -119,6 +123,16 @@
             android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- 중독자 프로필: 신규 앱 설치를 감지해 보호자에게 알린다 -->
+        <receiver
+            android:name=".install.PackageAddedReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.PACKAGE_ADDED" />
+                <data android:scheme="package" />
             </intent-filter>
         </receiver>
 

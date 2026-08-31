@@ -38,4 +38,29 @@ object FcmService {
             .build()
         FirebaseMessaging.getInstance().send(message)
     }
+
+    /**
+     * 관리자 권한 해제 시도, 감시 대상 앱 실행, 신규 앱 설치, 장시간 무활동 등
+     * profileType별로 다른 종류의 활동 알림을 보호자에게 즉시 보낸다.
+     */
+    fun sendActivityAlert(guardianFcmToken: String, wardName: String, type: String, detail: String) {
+        if (!initialized) return
+        val (title, body) = when (type) {
+            "DEVICE_ADMIN_DISABLE_REQUESTED" ->
+                "SafeCircle 이탈 시도 감지" to "$wardName 님이 관리자 권한 해제(삭제 전 단계)를 시도했습니다."
+            "WATCHED_APP_LAUNCHED" ->
+                "앱 실행 알림" to "$wardName 님이 감시 대상 앱(${detail.ifBlank { "알 수 없음" }})을 실행했습니다."
+            "APP_INSTALLED" ->
+                "신규 앱 설치 알림" to "$wardName 님 기기에 새 앱(${detail.ifBlank { "알 수 없음" }})이 설치되었습니다."
+            "INACTIVITY_DETECTED" ->
+                "무활동 감지" to "$wardName 님 기기에서 오랫동안 사용 활동이 없습니다. 안부를 확인해주세요."
+            else ->
+                "SafeCircle 알림" to "$wardName 님 기기에서 활동이 감지되었습니다."
+        }
+        val message = Message.builder()
+            .setToken(guardianFcmToken)
+            .setNotification(Notification.builder().setTitle(title).setBody(body).build())
+            .build()
+        FirebaseMessaging.getInstance().send(message)
+    }
 }
