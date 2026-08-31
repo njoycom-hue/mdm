@@ -13,7 +13,12 @@ services:
       - "127.0.0.1:5432:5432"
 
   api:
-    build: .
+    # deploy-oci.yml이 GitHub Actions 러너(공용, 무료)에서 이미지를 미리 빌드해
+    # "docker save"로 여기 옮겨 "docker load"해둔다 — OCI 서버 자체는 컴파일을
+    # 전혀 하지 않는다(운영 서버 CPU/메모리를 빌드에 쓰지 않기 위함). 로컬에서
+    # 직접 띄울 때는 이미지가 없으므로 아래 build 줄의 주석을 풀고 쓰면 된다.
+    image: safecircle-backend:latest
+    # build: .
     restart: unless-stopped
     depends_on:
       - db

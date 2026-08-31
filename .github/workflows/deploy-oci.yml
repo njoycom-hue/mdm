@@ -12,6 +12,13 @@ name: OCI 백엔드 배포
 # 분리된 /opt/safecircle-backend를 씁니다 — 포트/의존성 충돌 없이 같은 OCI 인스턴스에
 # 얹혀 살 수 있습니다.
 #
+# 이미지는 OCI 서버가 아니라 이 GitHub Actions 러너(무료 공용 인프라)에서 빌드합니다.
+# OCI 서버는 Ampere A1(ARM64)이고 이 러너는 x86_64라서 buildx+QEMU로 linux/arm64를
+# 크로스 빌드한 뒤 이미지를 tar로 저장해 OCI로 옮기고 그쪽에서는 "docker load"만
+# 합니다 — 즉 OCI 서버는 컴파일을 전혀 하지 않습니다. (예전 버전은 OCI 서버에서
+# "docker compose up -d --build"로 직접 컴파일했는데, Gradle/Kotlin 컴파일이 CPU를
+# 많이 써서 운영 서버 부하 스파이크로 이어질 수 있어 이렇게 옮겼습니다.)
+#
 # 사전 준비 (Settings → Secrets and variables → Actions):
 #   OCI_HOST / OCI_USER / OCI_SSH_KEY : OCI 인스턴스 접속 정보 (duruone과 같은 서버면
 #                                        같은 값, 새 서버면 새로 발급)
@@ -36,10 +43,31 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - name: 코드 가져오기
         uses: actions/checkout@v4
+
+      - name: ARM64 크로스 빌드 준비 (QEMU + buildx)
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: buildx 빌더 준비
+        uses: docker/setup-buildx-action@v3
+
+      - name: 백엔드 이미지를 이 러너(무료 공용 인프라)에서 빌드 — OCI 서버는 컴파일 안 함
+        uses: docker/build-push-action@v6
+        with:
+          context: backend
+          platforms: linux/arm64
+          tags: safecircle-backend:latest
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: 빌드된 이미지를 tar로 저장(압축) — OCI로 옮길 준비
+        run: docker save safecircle-backend:latest | gzip > backend/safecircle-backend-image.tar.gz
 
       - name: 배포 디렉터리 준비 (없으면 생성 + 소유권 이전 — /opt은 기본적으로 root 소유)
         uses: appleboy/ssh-action@v1
@@ -53,19 +81,19 @@ jobs:
             sudo mkdir -p /opt/safecircle-backend
             sudo chown -R "$USER":"$USER" /opt/safecircle-backend
 
-      - name: 배포 디렉터리로 backend/ 동기화
+      - name: docker-compose.yml + 빌드된 이미지를 OCI로 전송 (소스 코드는 안 보냄)
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.OCI_HOST }}
           username: ${{ secrets.OCI_USER }}
           key: ${{ secrets.OCI_SSH_KEY }}
           passphrase: ${{ secrets.OCI_SSH_PASSPHRASE }}
-          source: "backend/*"
+          source: "backend/docker-compose.yml,backend/safecircle-backend-image.tar.gz"
           target: "/opt/safecircle-backend"
           strip_components: 1
           overwrite: true
 
-      - name: Docker 설치 확인 + .env 생성(최초 1회만) + 컨테이너 기동
+      - name: Docker 설치 확인 + .env 생성(최초 1회만) + 이미지 로드 + 컨테이너 기동
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.OCI_HOST }}
@@ -101,8 +129,10 @@ jobs:
               echo ".env 이미 있음 — 건드리지 않음 (비밀번호를 바꾸려면 서버에서 직접 수정하세요)"
             fi
 
-            echo "=== 3) 컨테이너 빌드 + 기동 ==="
-            sudo docker compose up -d --build
+            echo "=== 3) 미리 빌드된 이미지 로드 + 컨테이너 기동 (컴파일 없음) ==="
+            sudo docker load < safecircle-backend-image.tar.gz
+            rm -f safecircle-backend-image.tar.gz
+            sudo docker compose up -d
 
             echo "=== 4) 헬스체크 (JVM 콜드스타트 대비 최대 60초 재시도) ==="
             HOST_PORT_V=$(grep -m1 '^HOST_PORT=' .env | cut -d= -f2)
