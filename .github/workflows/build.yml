@@ -6,6 +6,9 @@ on:
       - "**"
   workflow_dispatch: {}
 
+permissions:
+  contents: write
+
 jobs:
   android:
     runs-on: ubuntu-latest
@@ -32,11 +35,20 @@ jobs:
         working-directory: android
         run: ./gradlew assembleDebug --stacktrace
 
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
+      - name: Publish latest debug APK to Releases
+        uses: ncipollo/release-action@v1
         with:
-          name: safecircle-debug-apk
-          path: android/app/build/outputs/apk/debug/*.apk
+          tag: latest-debug
+          name: Latest debug build
+          body: |
+            자동 빌드된 최신 디버그 APK. 이전 릴리즈를 덮어쓰며, Artifacts에는 남기지 않습니다.
+            커밋: ${{ github.sha }}
+          artifacts: android/app/build/outputs/apk/debug/*.apk
+          allowUpdates: true
+          removeArtifacts: true
+          replacesArtifacts: true
+          makeLatest: true
+          prerelease: true
 
   backend:
     runs-on: ubuntu-latest
