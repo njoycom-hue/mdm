@@ -79,5 +79,11 @@ dependencies {
 
     // 부모님 프로필의 "생체 신호" 감지: 폰 자체엔 심박 센서가 없어서, 갤럭시 워치 등
     // 스마트워치가 Health Connect에 기록한 심박수/걸음수를 대신 읽는다.
-    implementation("androidx.health.connect:connect-client:1.1.0")
+    // 주의: 안정판 1.1.0은 AAR 메타데이터가 compileSdk 36 + AGP 8.9.1+를 요구해서
+    // 이 프로젝트(compileSdk 34, AGP 8.5.2)에서 :app:checkDebugAarMetadata가 바로
+    // 실패한다. 프로젝트 전체의 compileSdk/AGP를 올리는 건 파급 범위가 커서, 그
+    // 요구사항이 생기기 전(2024년 1월, Android 15/16 SDK가 나오기도 전) 버전인
+    // 1.1.0-alpha07로 고정한다 — 여기서 쓰는 권한/레코드 조회 API 표면은 그때부터
+    // 이미 안정적이었다.
+    implementation("androidx.health.connect:connect-client:1.1.0-alpha07")
 }
