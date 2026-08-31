@@ -9,7 +9,8 @@ services:
     volumes:
       - db_data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      # 로컬호스트에만 바인딩 — 인터넷에 DB 포트를 직접 노출하지 않는다 (nginx는 api만 프록시)
+      - "127.0.0.1:5432:5432"
 
   api:
     build: .
@@ -21,8 +22,12 @@ services:
       DATABASE_USER: safecircle
       DATABASE_PASSWORD: ${DATABASE_PASSWORD:-safecircle}
       JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me}
+      # FCM을 쓰려면 서비스 계정 JSON을 컨테이너 안 이 경로에 두고 값을 채운다 (선택 사항).
+      # 예: 볼륨 마운트 "- /opt/safecircle/firebase-service-account.json:/app/firebase-service-account.json:ro"
+      FIREBASE_SERVICE_ACCOUNT_PATH: ${FIREBASE_SERVICE_ACCOUNT_PATH:-}
     ports:
-      - "8080:8080"
+      # 다른 서버로 이관해도 여기 포트 번호만 맞으면 되도록 .env의 HOST_PORT로 통일 관리
+      - "127.0.0.1:${HOST_PORT:-8090}:8080"
 
 volumes:
   db_data:

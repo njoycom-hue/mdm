@@ -14,6 +14,7 @@ import com.auth0.jwt.JWT
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
+import io.ktor.server.application.call
 import io.ktor.server.application.install
 import io.ktor.server.auth.Authentication
 import io.ktor.server.auth.jwt.JWTPrincipal
@@ -24,6 +25,7 @@ import io.ktor.server.plugins.callloging.CallLogging
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.plugins.statuspages.StatusPages
 import io.ktor.server.response.respondText
+import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
 
 fun main() {
@@ -63,6 +65,8 @@ fun Application.module() {
     FcmService.init(System.getenv("FIREBASE_SERVICE_ACCOUNT_PATH"))
 
     routing {
+        get("/health") { call.respondText("OK") }
+
         authRoutes(jwtService)
         consentRoutes()
         pairingRoutes()
