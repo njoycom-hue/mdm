@@ -1,0 +1,27 @@
+
+# Android / Gradle
+android/.gradle/
+android/local.properties
+android/**/build/
+android/.idea/
+android/*.iml
+android/captures/
+android/.cxx/
+
+# Kotlin / Backend
+backend/.gradle/
+backend/build/
+backend/**/build/
+backend/.idea/
+backend/*.iml
+
+# Env / secrets
+*.env
+.env.local
+**/secrets.properties
+**/google-services.json
+**/*serviceAccountKey*.json
+
+# OS
+.DS_Store
+Thumbs.db

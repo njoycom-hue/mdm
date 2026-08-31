@@ -1,0 +1,28 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: safecircle
+      POSTGRES_USER: safecircle
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-safecircle}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  api:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: jdbc:postgresql://db:5432/safecircle
+      DATABASE_USER: safecircle
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD:-safecircle}
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me}
+    ports:
+      - "8080:8080"
+
+volumes:
+  db_data:
