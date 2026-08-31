@@ -37,3 +37,7 @@ data class BatchUploadRequest(
     val keywordAlerts: List<KeywordAlertDto> = emptyList(),
     val callEvents: List<CallEventDto> = emptyList()
 )
+
+data class WardSummary(val wardId: String, val email: String, val pairedAtEpochMs: Long)
+data class KeywordAlertSummary(val sourceApp: String, val matchedKeywords: List<String>, val occurredAtEpochMs: Long)
+data class AppUsageSummary(val packageName: String, val totalForegroundMillis: Long)

@@ -1,17 +1,23 @@
 package com.safecircle.app.network
 
+import com.safecircle.app.network.dto.AppUsageSummary
 import com.safecircle.app.network.dto.AuthResponse
 import com.safecircle.app.network.dto.BatchUploadRequest
 import com.safecircle.app.network.dto.ClaimPairingRequest
 import com.safecircle.app.network.dto.ConsentEventRequest
+import com.safecircle.app.network.dto.KeywordAlertSummary
 import com.safecircle.app.network.dto.LoginRequest
 import com.safecircle.app.network.dto.PairingCodeResponse
 import com.safecircle.app.network.dto.RegisterFcmTokenRequest
 import com.safecircle.app.network.dto.RegisterRequest
+import com.safecircle.app.network.dto.WardSettingsRequest
 import com.safecircle.app.network.dto.WardSettingsResponse
+import com.safecircle.app.network.dto.WardSummary
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
+import retrofit2.http.PUT
+import retrofit2.http.Path
 
 interface ApiService {
 
@@ -36,6 +42,21 @@ interface ApiService {
     @GET("/v1/settings/mine")
     suspend fun myWardSettings(): WardSettingsResponse
 
+    @GET("/v1/settings/ward/{wardId}")
+    suspend fun wardSettings(@Path("wardId") wardId: String): WardSettingsResponse
+
+    @PUT("/v1/settings/ward/{wardId}")
+    suspend fun updateWardSettings(@Path("wardId") wardId: String, @Body body: WardSettingsRequest)
+
     @POST("/v1/events/batch")
     suspend fun uploadEvents(@Body body: BatchUploadRequest)
+
+    @GET("/v1/guardian/wards")
+    suspend fun myWards(): List<WardSummary>
+
+    @GET("/v1/guardian/wards/{wardId}/alerts")
+    suspend fun wardAlerts(@Path("wardId") wardId: String): List<KeywordAlertSummary>
+
+    @GET("/v1/guardian/wards/{wardId}/usage")
+    suspend fun wardUsage(@Path("wardId") wardId: String): List<AppUsageSummary>
 }

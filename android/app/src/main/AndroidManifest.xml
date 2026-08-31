@@ -48,6 +48,14 @@
             android:name=".permissions.PermissionSetupActivity"
             android:exported="false" />
 
+        <activity
+            android:name=".guardian.GuardianDashboardActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".guardian.WardDetailActivity"
+            android:exported="false" />
+
         <service
             android:name=".notification.FcmMessagingService"
             android:exported="false">

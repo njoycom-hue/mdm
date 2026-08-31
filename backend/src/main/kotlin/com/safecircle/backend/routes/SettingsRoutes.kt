@@ -1,6 +1,5 @@
 package com.safecircle.backend.routes
 
-import com.safecircle.backend.db.Pairings
 import com.safecircle.backend.db.WardSettings
 import com.safecircle.backend.security.requireRole
 import com.safecircle.backend.security.userPrincipal
@@ -13,7 +12,6 @@ import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 import io.ktor.server.routing.put
 import kotlinx.serialization.Serializable
-import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.select
 import org.jetbrains.exposed.sql.transactions.transaction
@@ -91,10 +89,6 @@ fun Route.settingsRoutes() {
             call.respond(HttpStatusCode.OK)
         }
     }
-}
-
-private fun isPaired(guardianId: UUID, wardId: UUID): Boolean = transaction {
-    Pairings.select { (Pairings.guardianId eq guardianId) and (Pairings.wardId eq wardId) }.any()
 }
 
 private fun loadSettings(wardId: UUID): WardSettingsResponse = transaction {

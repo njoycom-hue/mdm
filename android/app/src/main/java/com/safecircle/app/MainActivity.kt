@@ -20,6 +20,7 @@ import androidx.lifecycle.lifecycleScope
 import com.google.firebase.messaging.FirebaseMessaging
 import com.safecircle.app.auth.AuthActivity
 import com.safecircle.app.auth.TokenStore
+import com.safecircle.app.guardian.GuardianDashboardActivity
 import com.safecircle.app.network.ApiClient
 import com.safecircle.app.network.dto.RegisterFcmTokenRequest
 import com.safecircle.app.onboarding.ConsentActivity
@@ -62,7 +63,8 @@ class MainActivity : ComponentActivity() {
                     HomeScreen(
                         role = role ?: "WARD",
                         onOpenPermissionSetup = { startActivity(Intent(this, PermissionSetupActivity::class.java)) },
-                        onOpenPairing = { startActivity(Intent(this, PairingActivity::class.java)) }
+                        onOpenPairing = { startActivity(Intent(this, PairingActivity::class.java)) },
+                        onOpenDashboard = { startActivity(Intent(this, GuardianDashboardActivity::class.java)) }
                     )
                 }
             }
@@ -80,7 +82,12 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun HomeScreen(role: String, onOpenPermissionSetup: () -> Unit, onOpenPairing: () -> Unit) {
+private fun HomeScreen(
+    role: String,
+    onOpenPermissionSetup: () -> Unit,
+    onOpenPairing: () -> Unit,
+    onOpenDashboard: () -> Unit
+) {
     Column(
         modifier = Modifier.fillMaxSize().padding(24.dp),
         verticalArrangement = Arrangement.Center,
@@ -92,8 +99,9 @@ private fun HomeScreen(role: String, onOpenPermissionSetup: () -> Unit, onOpenPa
             Button(onClick = onOpenPermissionSetup) { Text("권한 설정 점검") }
             Button(onClick = onOpenPairing) { Text("보호자 연결 코드 보기") }
         } else {
-            Text("연결된 피보호자의 상태 대시보드는 추후 구현 예정입니다.")
-            Button(onClick = onOpenPairing) { Text("피보호자 연결하기") }
+            Text("연결된 피보호자의 상태를 확인하고 정책을 관리하세요.")
+            Button(onClick = onOpenDashboard) { Text("대시보드 열기") }
+            Button(onClick = onOpenPairing) { Text("피보호자 추가 연결하기") }
         }
     }
 }

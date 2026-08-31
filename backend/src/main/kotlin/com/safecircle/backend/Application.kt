@@ -5,6 +5,7 @@ import com.safecircle.backend.routes.authRoutes
 import com.safecircle.backend.routes.consentRoutes
 import com.safecircle.backend.routes.deviceRoutes
 import com.safecircle.backend.routes.eventRoutes
+import com.safecircle.backend.routes.guardianRoutes
 import com.safecircle.backend.routes.pairingRoutes
 import com.safecircle.backend.routes.settingsRoutes
 import com.safecircle.backend.security.JwtService
@@ -68,5 +69,6 @@ fun Application.module() {
         eventRoutes()
         deviceRoutes()
         settingsRoutes()
+        guardianRoutes()
     }
 }
