@@ -62,4 +62,5 @@ cd android
 ## CI/배포
 
 - `.github/workflows/build.yml` — 매 푸시마다 안드로이드 `assembleDebug` + 백엔드 `compileKotlin` 실행, 최신 디버그 APK를 `latest-debug` 릴리즈에 덮어씀 ([다운로드](https://github.com/njoycom-hue/mdm/releases/tag/latest-debug))
-- `.github/workflows/deploy-oci.yml` — 백엔드를 OCI 인스턴스에 SSH로 배포 (수동 트리거). Docker Compose로 완전히 컨테이너화되어 있어 다른 서버/클라우드로 옮길 때도 `backend/` 디렉터리 + `.env` 복사 후 `docker compose up -d`만 하면 재현됨. 배포 전 저장소 Secrets에 `OCI_HOST`, `OCI_USER`, `OCI_SSH_KEY`, `DATABASE_PASSWORD`, `JWT_SECRET` 등록 필요 (자세한 내용은 워크플로우 파일 상단 주석 참고)
+- `.github/workflows/deploy-oci.yml` — 백엔드를 OCI 인스턴스(duruone과 동일 서버)에 SSH로 배포 (수동 트리거). Docker Compose로 완전히 컨테이너화되어 있어 다른 서버/클라우드로 옮길 때도 `backend/` 디렉터리 + `.env` 복사 후 `docker compose up -d`만 하면 재현됨. 배포 전 저장소 Secrets에 `OCI_HOST`, `OCI_USER`, `OCI_SSH_KEY`, `DATABASE_PASSWORD`, `JWT_SECRET` 등록 필요 (개인키가 passphrase로 잠겨있으면 `OCI_SSH_PASSPHRASE`도)
+- `.github/workflows/deploy-oci-nginx-setup.yml` — 배포된 백엔드를 `https://mdm.duruone.com`으로 외부에 노출하는 nginx 리버스 프록시 설정 (최초 1회, 수동 트리거). duruone의 기존 Cloudflare Origin 인증서를 재사용함. **Cloudflare DNS에 `mdm.duruone.com` A레코드 추가는 이 워크플로우가 아니라 사용자가 직접 해야 함**

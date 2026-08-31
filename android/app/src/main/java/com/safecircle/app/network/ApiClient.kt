@@ -11,8 +11,9 @@ import retrofit2.converter.moshi.MoshiConverterFactory
 
 class ApiClient(context: Context) {
 
-    // TODO: OCI 배포 후 실제 도메인으로 교체, BuildConfig로 dev/prod 분리
-    private val baseUrl = "https://api.safecircle.example.com"
+    // OCI 서버(duruone과 동일 인스턴스)에 mdm.duruone.com으로 nginx 리버스 프록시 연결됨
+    // (.github/workflows/deploy-oci-nginx-setup.yml 참고)
+    private val baseUrl = "https://mdm.duruone.com"
 
     private val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
 
