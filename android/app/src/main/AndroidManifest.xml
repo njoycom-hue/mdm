@@ -16,6 +16,12 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- 의도적으로 READ_SMS / READ_CALL_LOG는 선언하지 않음: docs/ARCHITECTURE.md 참고 -->
 
+    <!-- 부모님 프로필: 스마트워치가 Health Connect에 기록한 심박수/걸음수를 읽어
+         "생체 신호"가 있는지 확인한다(워치가 없으면 이 권한을 요청하지 않고 무활동
+         감지로 자동 대체된다). -->
+    <uses-permission android:name="android.permission.health.READ_HEART_RATE" />
+    <uses-permission android:name="android.permission.health.READ_STEPS" />
+
     <!-- 안드로이드 11+ 패키지 가시성 제한 대응: QUERY_ALL_PACKAGES 같은 민감 권한 없이도
          "런처에 노출되는 앱 전체를 봐야 한다"는 용도를 명시적으로 선언해 필요한 만큼만 허용받는다
          (보호자가 차단/감시할 앱을 실제 목록에서 고를 수 있게 하는 InstalledAppsRepository용). -->

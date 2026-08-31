@@ -6,6 +6,7 @@ import android.content.Intent
 import android.net.VpnService
 import android.os.Bundle
 import android.provider.Settings
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -23,6 +24,7 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Accessibility
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.VpnLock
 import androidx.compose.material3.Icon
@@ -31,8 +33,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -42,9 +46,13 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
+import androidx.health.connect.client.PermissionController
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.safecircle.app.admin.AppDeviceAdminReceiver
+import com.safecircle.app.health.HealthSignalRepository
+import com.safecircle.app.network.dto.PROFILE_ELDERLY
+import com.safecircle.app.settings.PolicyRepository
 import com.safecircle.app.ui.components.ScreenColumn
 import com.safecircle.app.ui.components.ScreenScaffold
 import com.safecircle.app.ui.components.SecondaryButton
@@ -69,6 +77,9 @@ class PermissionSetupActivity : ComponentActivity() {
         }
     }
 
+    private val healthConnectPermissionLauncher =
+        registerForActivityResult(PermissionController.createRequestPermissionResultContract()) { /* onResume이 상태를 다시 읽는다 */ }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -79,11 +90,22 @@ class PermissionSetupActivity : ComponentActivity() {
                         onOpenAccessibility = { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) },
                         onOpenDeviceAdmin = ::requestDeviceAdmin,
                         onOpenNotificationAccess = { startActivity(Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS")) },
-                        onEnableVpn = ::requestVpnPermission
+                        onEnableVpn = ::requestVpnPermission,
+                        onConnectHealth = ::requestHealthConnect
                     )
                 }
             }
         }
+    }
+
+    /** 부모님 프로필 전용(선택): 워치가 Health Connect에 기록한 심박수/걸음수 읽기 권한을 요청한다. */
+    private fun requestHealthConnect() {
+        val repo = HealthSignalRepository(this)
+        if (!repo.isHealthConnectAvailable()) {
+            Toast.makeText(this, "이 기기에는 Health Connect가 없습니다. Play 스토어에서 설치 후 다시 시도해주세요.", Toast.LENGTH_LONG).show()
+            return
+        }
+        healthConnectPermissionLauncher.launch(repo.permissionsToRequest())
     }
 
     private fun requestDeviceAdmin() {
@@ -134,19 +156,41 @@ private fun PermissionSetupScreen(
     onOpenAccessibility: () -> Unit,
     onOpenDeviceAdmin: () -> Unit,
     onOpenNotificationAccess: () -> Unit,
-    onEnableVpn: () -> Unit
+    onEnableVpn: () -> Unit,
+    onConnectHealth: () -> Unit
 ) {
     val context = LocalContext.current
     val resumeSignal = rememberResumeSignal()
     val statuses = remember(resumeSignal) { loadPermissionStatuses(context) }
 
-    val steps = listOf(
-        PermissionStep(Icons.Filled.BarChart, "사용정보 접근", "앱별 사용시간을 확인하는 데 필요합니다", "설정 열기", statuses.usageAccess, onOpenUsageAccess),
-        PermissionStep(Icons.Filled.Accessibility, "접근성 서비스", "앱 차단과 키워드 감지에 필요합니다", "설정 열기", statuses.accessibility, onOpenAccessibility),
-        PermissionStep(Icons.Filled.AdminPanelSettings, "기기 관리자", "무단으로 앱을 해제하지 못하도록 막습니다", "활성화", statuses.deviceAdmin, onOpenDeviceAdmin),
-        PermissionStep(Icons.Filled.Notifications, "알림 접근", "문자·은행 알림의 키워드를 감지합니다", "설정 열기", statuses.notificationAccess, onOpenNotificationAccess),
-        PermissionStep(Icons.Filled.VpnLock, "VPN 필터", "유해 사이트 접속을 차단합니다", "필터 켜기", statuses.vpn, onEnableVpn),
-    )
+    // 부모님 프로필일 때만 보이는 선택 단계라 나머지와 달리 suspend 조회가 필요하다.
+    var showHealthStep by remember { mutableStateOf(false) }
+    var healthGranted by remember { mutableStateOf(false) }
+    LaunchedEffect(resumeSignal) {
+        showHealthStep = PolicyRepository(context).profileType() == PROFILE_ELDERLY
+        healthGranted = HealthSignalRepository(context).hasRequiredPermission()
+    }
+
+    val steps = buildList {
+        add(PermissionStep(Icons.Filled.BarChart, "사용정보 접근", "앱별 사용시간을 확인하는 데 필요합니다", "설정 열기", statuses.usageAccess, onOpenUsageAccess))
+        add(PermissionStep(Icons.Filled.Accessibility, "접근성 서비스", "앱 차단과 키워드 감지에 필요합니다", "설정 열기", statuses.accessibility, onOpenAccessibility))
+        add(PermissionStep(Icons.Filled.AdminPanelSettings, "기기 관리자", "무단으로 앱을 해제하지 못하도록 막습니다", "활성화", statuses.deviceAdmin, onOpenDeviceAdmin))
+        add(PermissionStep(Icons.Filled.Notifications, "알림 접근", "문자·은행 알림의 키워드를 감지합니다", "설정 열기", statuses.notificationAccess, onOpenNotificationAccess))
+        add(PermissionStep(Icons.Filled.VpnLock, "VPN 필터", "유해 사이트 접속을 차단합니다", "필터 켜기", statuses.vpn, onEnableVpn))
+        if (showHealthStep) {
+            add(
+                PermissionStep(
+                    Icons.Filled.Favorite,
+                    "생체 신호 연동 (워치, 선택)",
+                    "갤럭시 워치 등 스마트워치가 있으면 심박수·걸음 신호로 안부를 확인합니다. " +
+                        "워치가 없으면 건너뛰어도 폰 사용 여부로 자동 대체됩니다.",
+                    "연동하기",
+                    healthGranted,
+                    onConnectHealth
+                )
+            )
+        }
+    }
     val doneCount = steps.count { it.granted }
 
     ScreenScaffold(title = "권한 설정") { padding ->

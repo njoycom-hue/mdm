@@ -54,6 +54,8 @@ object FcmService {
                 "신규 앱 설치 알림" to "$wardName 님 기기에 새 앱(${detail.ifBlank { "알 수 없음" }})이 설치되었습니다."
             "INACTIVITY_DETECTED" ->
                 "무활동 감지" to "$wardName 님 기기에서 오랫동안 사용 활동이 없습니다. 안부를 확인해주세요."
+            "BIOMETRIC_SIGNAL_MISSING" ->
+                "생체 신호 없음" to "$wardName 님의 워치에서 오랫동안 심박수/걸음 신호가 없습니다. 안부를 확인해주세요."
             else ->
                 "SafeCircle 알림" to "$wardName 님 기기에서 활동이 감지되었습니다."
         }

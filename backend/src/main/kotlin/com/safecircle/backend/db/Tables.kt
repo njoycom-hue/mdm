@@ -123,7 +123,9 @@ object InstalledApps : UUIDTable("installed_apps") {
  */
 object ActivityAlerts : UUIDTable("activity_alerts") {
     val wardId = reference("ward_id", Users)
-    val type = varchar("type", 64) // DEVICE_ADMIN_DISABLE_REQUESTED | WATCHED_APP_LAUNCHED | APP_INSTALLED | INACTIVITY_DETECTED
+    // DEVICE_ADMIN_DISABLE_REQUESTED | WATCHED_APP_LAUNCHED | APP_INSTALLED |
+    // INACTIVITY_DETECTED | BIOMETRIC_SIGNAL_MISSING
+    val type = varchar("type", 64)
     val detail = varchar("detail", 255).default("")
     val occurredAt = timestamp("occurred_at")
 }

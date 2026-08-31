@@ -76,4 +76,8 @@ dependencies {
     implementation(platform("com.google.firebase:firebase-bom:33.1.2"))
     implementation("com.google.firebase:firebase-messaging-ktx")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1")
+
+    // 부모님 프로필의 "생체 신호" 감지: 폰 자체엔 심박 센서가 없어서, 갤럭시 워치 등
+    // 스마트워치가 Health Connect에 기록한 심박수/걸음수를 대신 읽는다.
+    implementation("androidx.health.connect:connect-client:1.1.0")
 }

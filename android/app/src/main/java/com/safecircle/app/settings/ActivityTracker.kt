@@ -3,9 +3,9 @@ package com.safecircle.app.settings
 import android.content.Context
 
 /**
- * 마지막으로 기기 사용(접근성 이벤트)이 감지된 시각을 기록한다. 별도 생체/동작 센서 없이,
- * "화면에서 일어나는 모든 조작"을 활동 신호로 대신 쓴다 — 부모님 프로필의 무활동 감지가
- * InactivityCheckWorker에서 이 값을 읽어 판단한다.
+ * 부모님 프로필의 "무활동/생체 신호 없음" 감지에 쓰는 두 종류의 마지막 신호 시각을
+ * 기록한다. 워치가 연동되어 있으면 생체 신호(심박수/걸음수) 기준을, 없으면 화면 조작
+ * (접근성 이벤트) 기준을 InactivityCheckWorker가 선택해서 쓴다.
  */
 class ActivityTracker(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences("activity_tracker", Context.MODE_PRIVATE)
@@ -23,8 +23,22 @@ class ActivityTracker(context: Context) {
         prefs.edit().putLong(KEY_LAST_ALERTED_AT, System.currentTimeMillis()).apply()
     }
 
+    fun recordBiometricSignalAt(epochMs: Long) {
+        prefs.edit().putLong(KEY_LAST_BIOMETRIC_SIGNAL_AT, epochMs).apply()
+    }
+
+    fun lastBiometricSignalAtEpochMs(): Long = prefs.getLong(KEY_LAST_BIOMETRIC_SIGNAL_AT, System.currentTimeMillis())
+
+    fun lastBiometricAlertedAtEpochMs(): Long = prefs.getLong(KEY_LAST_BIOMETRIC_ALERTED_AT, 0L)
+
+    fun recordBiometricAlertedNow() {
+        prefs.edit().putLong(KEY_LAST_BIOMETRIC_ALERTED_AT, System.currentTimeMillis()).apply()
+    }
+
     companion object {
         private const val KEY_LAST_ACTIVITY_AT = "last_activity_at"
         private const val KEY_LAST_ALERTED_AT = "last_alerted_at"
+        private const val KEY_LAST_BIOMETRIC_SIGNAL_AT = "last_biometric_signal_at"
+        private const val KEY_LAST_BIOMETRIC_ALERTED_AT = "last_biometric_alerted_at"
     }
 }

@@ -23,22 +23,19 @@ name: OCI 백엔드 배포
 #
 # main 푸시 시 자동 배포는 꺼져있습니다 — Actions 탭에서 수동으로 "Run workflow"
 # 실행해주세요 (Claude에게 "백엔드 배포해줘"라고 하면 대신 실행해드립니다).
+#
+# 항상 GitHub 호스팅 러너(ubuntu-latest)에서만 실행됩니다. self-hosted 러너 선택지는
+# 없앴습니다 — OCI 서버에 실제로 러너가 등록돼 있다는 보장이 없는 상태에서 고르면
+# 잡히는 러너가 없어 그냥 무한 대기하다 타임아웃되는 위험이 있고, build.yml(안드로이드/
+# 백엔드 CI)도 처음부터 ubuntu-latest만 씁니다. SSH 스텝이 OCI_HOST로 직접 접속하므로
+# 실행 위치가 GitHub이든 자체 러너든 배포 결과 자체는 동일합니다.
 
 on:
-  workflow_dispatch:
-    inputs:
-      runner:
-        description: "실행 러너 (self-hosted: OCI에 등록된 러너가 있을 때만 / ubuntu-latest: GitHub 서버, 기본값)"
-        required: true
-        type: choice
-        options:
-          - ubuntu-latest
-          - self-hosted
-        default: ubuntu-latest
+  workflow_dispatch: {}
 
 jobs:
   deploy:
-    runs-on: ${{ inputs.runner }}
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - name: 코드 가져오기

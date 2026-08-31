@@ -382,9 +382,9 @@ private fun WardDetailScreen(
                     PROFILE_ELDERLY -> {
                         Text(
                             "보이스피싱에서 자주 쓰이는 표현이 화면에 감지되면 즉시 알립니다. " +
-                                "심박수 등 실제 생체 신호까지는 폰 자체 센서로 볼 수 없어, 대신 " +
-                                "12시간 이상 기기 사용이 없으면 무활동으로 보고 자동으로 알립니다 " +
-                                "(별도 설정 불필요 — 워치 연동을 원하시면 알려주세요).",
+                                "갤럭시 워치 등 스마트워치가 있으면(설정 > 권한 설정 화면에서 연동) " +
+                                "심박수·걸음 신호가 12시간 이상 끊길 때 알리고, 워치가 없으면 폰 화면 " +
+                                "조작 기준 무활동 감지로 자동 대체합니다(별도 설정 불필요).",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -568,6 +568,7 @@ private fun ActivityAlertRow(alert: ActivityAlertSummary) {
         "WATCHED_APP_LAUNCHED" -> Icons.Filled.PlayCircle to "감시 대상 앱 실행: ${alert.detail}"
         "APP_INSTALLED" -> Icons.Filled.NewReleases to "신규 앱 설치: ${alert.detail}"
         "INACTIVITY_DETECTED" -> Icons.Filled.Bedtime to "장시간 무활동 감지"
+        "BIOMETRIC_SIGNAL_MISSING" -> Icons.Filled.Bedtime to "장시간 생체 신호(워치) 없음"
         else -> Icons.Filled.NotificationsActive to alert.type
     }
     Row(
