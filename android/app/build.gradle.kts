@@ -17,6 +17,20 @@ android {
         versionName = "0.1.0"
     }
 
+    signingConfigs {
+        // 리포에 커밋된 고정 디버그 키. AGP 기본 디버그 키는 CI마다 새로 생성되는 임시
+        // 키(~/.android/debug.keystore, 캐시되지 않음)라서 GitHub Release로 배포되는
+        // "latest-debug" APK가 빌드마다 서로 다른 서명으로 나와, 기존 설치본 위에 업데이트
+        // 설치가 매번 "패키지 충돌"로 실패했다. 디버그 키는 애초에 비밀로 취급하지 않는
+        // 값이라 커밋해도 안전하다.
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false

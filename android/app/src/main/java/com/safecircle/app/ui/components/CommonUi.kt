@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -50,7 +52,11 @@ fun ScreenScaffold(
     ) { padding -> content(padding) }
 }
 
-/** 각 화면 콘텐츠 영역에 일관된 좌우/상하 여백과 세로 간격을 적용하는 컨테이너. */
+/**
+ * 각 화면 콘텐츠 영역에 일관된 좌우/상하 여백과 세로 간격을 적용하는 컨테이너.
+ * 내용이 화면보다 길어질 수 있는 화면(권한 설정 등)에서도 항상 스크롤이 되도록
+ * 세로 스크롤을 기본으로 포함한다 — 화면마다 따로 verticalScroll을 잊지 않아도 된다.
+ */
 @Composable
 fun ScreenColumn(
     modifier: Modifier = Modifier,
@@ -60,6 +66,7 @@ fun ScreenColumn(
     Column(
         modifier = modifier
             .fillMaxWidth()
+            .verticalScroll(rememberScrollState())
             .padding(horizontal = Spacing.lg, vertical = Spacing.lg),
         verticalArrangement = Arrangement.spacedBy(spacing),
         content = content
