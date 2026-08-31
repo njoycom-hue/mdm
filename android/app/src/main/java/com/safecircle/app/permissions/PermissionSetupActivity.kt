@@ -171,9 +171,14 @@ private fun PermissionSetupScreen(
                             style = MaterialTheme.typography.bodyMedium
                         )
                         Text(
-                            "토글이 안 눌리면: 설정 > 앱 > SafeCircle > 우측 상단 점 3개(⋮) > " +
-                                "\"제한된 설정 허용\"을 먼저 탭한 뒤 다시 시도하세요 (스토어 밖에서 설치한 앱은 " +
-                                "안드로이드가 접근성·알림 권한을 기본적으로 막아둡니다).",
+                            "토글이 안 눌리거나 \"제한된 설정 허용\" 메뉴가 안 보이면 순서가 중요합니다" +
+                                "(스토어 밖에서 설치한 앱은 안드로이드 13 이상에서 기본적으로 막혀 있습니다):\n" +
+                                "① 설정 > 접근성(또는 알림 접근) > SafeCircle에서 토글을 먼저 눌러보세요 " +
+                                "(안 켜지고 튕겨 나오는 게 정상입니다)\n" +
+                                "② 그 다음 설정 > 앱 > SafeCircle로 이동해 우측 상단 점 3개(⋮)를 누르면 " +
+                                "그제서야 \"제한된 설정 허용\" 메뉴가 나타납니다 — 이 메뉴는 ①을 먼저 시도하기 " +
+                                "전에는 아예 보이지 않는 경우가 많습니다\n" +
+                                "③ \"제한된 설정 허용\"을 탭해 확인한 뒤 ①로 돌아가 다시 토글을 켜보세요",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
