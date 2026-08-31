@@ -19,8 +19,7 @@ import io.ktor.server.application.install
 import io.ktor.server.auth.Authentication
 import io.ktor.server.auth.jwt.JWTPrincipal
 import io.ktor.server.auth.jwt.jwt
-import io.ktor.server.engine.embeddedServer
-import io.ktor.server.netty.Netty
+import io.ktor.server.netty.EngineMain
 import io.ktor.server.plugins.callloging.CallLogging
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.plugins.statuspages.StatusPages
@@ -28,9 +27,10 @@ import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
 
-fun main() {
-    embeddedServer(Netty, port = 8080, host = "0.0.0.0", module = Application::module).start(wait = true)
-}
+// EngineMain(비수동 embeddedServer가 아니라)을 써야 resources/application.conf의
+// HOCON 설정(auth.jwtSecret 등)이 실제로 로드된다 — embeddedServer(Netty, module=...)를
+// 직접 호출하면 application.conf를 아예 안 읽어서 배포 환경에서 "Property not found"로 죽는다.
+fun main(args: Array<String>): Unit = EngineMain.main(args)
 
 fun Application.module() {
     install(ContentNegotiation) { json() }
