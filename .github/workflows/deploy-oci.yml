@@ -107,12 +107,24 @@ jobs:
             echo "=== 3) 컨테이너 빌드 + 기동 ==="
             sudo docker compose up -d --build
 
-            echo "=== 4) 헬스체크 ==="
+            echo "=== 4) 헬스체크 (JVM 콜드스타트 대비 최대 60초 재시도) ==="
             HOST_PORT_V=$(grep -m1 '^HOST_PORT=' .env | cut -d= -f2)
             HOST_PORT_V=${HOST_PORT_V:-8090}
-            sleep 5
-            curl -sf "http://127.0.0.1:${HOST_PORT_V}/health" && echo "" && echo "✅ 헬스체크 통과" \
-              || (echo "❌ 헬스체크 실패 — sudo docker compose logs api 로 확인 필요" && exit 1)
+            ok=0
+            for i in $(seq 1 12); do
+              if curl -sf "http://127.0.0.1:${HOST_PORT_V}/health" > /dev/null; then
+                ok=1
+                break
+              fi
+              sleep 5
+            done
+            if [ "$ok" = "1" ]; then
+              echo "✅ 헬스체크 통과"
+            else
+              echo "❌ 헬스체크 실패 — 아래는 최근 컨테이너 로그입니다"
+              sudo docker compose logs --tail 100 api
+              exit 1
+            fi
 
             echo ""
             echo "다음 단계(수동, 최초 1회만): nginx에 이 포트(${HOST_PORT_V})를 프록시하는"
