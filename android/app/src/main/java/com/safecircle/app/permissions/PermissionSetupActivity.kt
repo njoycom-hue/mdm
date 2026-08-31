@@ -2,7 +2,6 @@ package com.safecircle.app.permissions
 
 import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
-import android.content.Context
 import android.content.Intent
 import android.net.VpnService
 import android.os.Bundle
@@ -10,18 +9,39 @@ import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.weight
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AdminPanelSettings
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Accessibility
+import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.VpnLock
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import com.safecircle.app.admin.AppDeviceAdminReceiver
+import com.safecircle.app.ui.components.ScreenColumn
+import com.safecircle.app.ui.components.ScreenScaffold
+import com.safecircle.app.ui.components.SecondaryButton
+import com.safecircle.app.ui.components.SectionCard
+import com.safecircle.app.ui.components.Spacing
+import com.safecircle.app.ui.theme.SafeCircleTheme
 import com.safecircle.app.vpn.DomainFilterVpnService
 
 /**
@@ -39,8 +59,8 @@ class PermissionSetupActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            MaterialTheme {
-                Surface(modifier = Modifier.fillMaxSize()) {
+            SafeCircleTheme {
+                Surface {
                     PermissionSetupScreen(
                         onOpenUsageAccess = { startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) },
                         onOpenAccessibility = { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) },
@@ -71,6 +91,14 @@ class PermissionSetupActivity : ComponentActivity() {
     }
 }
 
+private data class PermissionStep(
+    val icon: ImageVector,
+    val title: String,
+    val description: String,
+    val actionLabel: String,
+    val onClick: () -> Unit
+)
+
 @Composable
 private fun PermissionSetupScreen(
     onOpenUsageAccess: () -> Unit,
@@ -79,25 +107,56 @@ private fun PermissionSetupScreen(
     onOpenNotificationAccess: () -> Unit,
     onEnableVpn: () -> Unit
 ) {
-    Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+    val steps = listOf(
+        PermissionStep(Icons.Filled.BarChart, "사용정보 접근", "앱별 사용시간을 확인하는 데 필요합니다", "설정 열기", onOpenUsageAccess),
+        PermissionStep(Icons.Filled.Accessibility, "접근성 서비스", "앱 차단과 키워드 감지에 필요합니다", "설정 열기", onOpenAccessibility),
+        PermissionStep(Icons.Filled.AdminPanelSettings, "기기 관리자", "무단으로 앱을 해제하지 못하도록 막습니다", "활성화", onOpenDeviceAdmin),
+        PermissionStep(Icons.Filled.Notifications, "알림 접근", "문자·은행 알림의 키워드를 감지합니다", "설정 열기", onOpenNotificationAccess),
+        PermissionStep(Icons.Filled.VpnLock, "VPN 필터", "유해 사이트 접속을 차단합니다", "필터 켜기", onEnableVpn),
+    )
+
+    ScreenScaffold(title = "권한 설정") { padding ->
+        ScreenColumn(modifier = Modifier.padding(padding), spacing = Spacing.md) {
+            Text(
+                "아래 항목을 모두 켜야 SafeCircle이 정상 동작합니다.",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            steps.forEachIndexed { index, step ->
+                SectionCard {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                        StepBadge(index + 1)
+                        Icon(
+                            imageVector = step.icon,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(28.dp)
+                        )
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(step.title, style = MaterialTheme.typography.titleMedium)
+                            Text(step.description, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    SecondaryButton(step.actionLabel, step.onClick)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StepBadge(number: Int) {
+    Box(
+        modifier = Modifier
+            .size(28.dp)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.primaryContainer),
+        contentAlignment = Alignment.Center
     ) {
-        Text("아래 4가지를 모두 켜야 SafeCircle이 정상 동작합니다.")
-
-        Text("1. 사용정보 접근 — 앱별 사용시간 확인")
-        Button(onClick = onOpenUsageAccess) { Text("사용정보 접근 설정 열기") }
-
-        Text("2. 접근성 서비스 — 앱 차단, 키워드 감지")
-        Button(onClick = onOpenAccessibility) { Text("접근성 설정 열기") }
-
-        Text("3. 기기 관리자 — 무단 해제 방지")
-        Button(onClick = onOpenDeviceAdmin) { Text("기기 관리자 활성화") }
-
-        Text("4. 알림 접근 — 문자/은행 알림 키워드 감지")
-        Button(onClick = onOpenNotificationAccess) { Text("알림 접근 설정 열기") }
-
-        Text("5. VPN — 유해 사이트 차단")
-        Button(onClick = onEnableVpn) { Text("VPN 필터 켜기") }
+        Text(
+            text = number.toString(),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onPrimaryContainer
+        )
     }
 }

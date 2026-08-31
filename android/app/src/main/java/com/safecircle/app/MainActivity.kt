@@ -5,10 +5,13 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -29,6 +32,13 @@ import com.safecircle.app.pairing.PairingActivity
 import com.safecircle.app.permissions.PermissionSetupActivity
 import com.safecircle.app.sync.EventQueue
 import com.safecircle.app.sync.SettingsSyncWorker
+import com.safecircle.app.ui.components.PrimaryButton
+import com.safecircle.app.ui.components.ScreenColumn
+import com.safecircle.app.ui.components.ScreenScaffold
+import com.safecircle.app.ui.components.SecondaryButton
+import com.safecircle.app.ui.components.SectionCard
+import com.safecircle.app.ui.components.Spacing
+import com.safecircle.app.ui.theme.SafeCircleTheme
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
@@ -58,8 +68,8 @@ class MainActivity : ComponentActivity() {
         registerFcmTokenIfNeeded()
 
         setContent {
-            MaterialTheme {
-                Surface(modifier = Modifier.fillMaxSize()) {
+            SafeCircleTheme {
+                Surface {
                     HomeScreen(
                         role = role ?: "WARD",
                         onOpenPermissionSetup = { startActivity(Intent(this, PermissionSetupActivity::class.java)) },
@@ -88,20 +98,34 @@ private fun HomeScreen(
     onOpenPairing: () -> Unit,
     onOpenDashboard: () -> Unit
 ) {
-    Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text("SafeCircle")
-        if (role == "WARD") {
-            Text("이 기기는 보호자와 연결되어 회복을 지원받고 있습니다.")
-            Button(onClick = onOpenPermissionSetup) { Text("권한 설정 점검") }
-            Button(onClick = onOpenPairing) { Text("보호자 연결 코드 보기") }
-        } else {
-            Text("연결된 피보호자의 상태를 확인하고 정책을 관리하세요.")
-            Button(onClick = onOpenDashboard) { Text("대시보드 열기") }
-            Button(onClick = onOpenPairing) { Text("피보호자 추가 연결하기") }
+    ScreenScaffold(title = "SafeCircle") { padding ->
+        ScreenColumn(modifier = Modifier.padding(padding), spacing = Spacing.lg) {
+            SectionCard(title = if (role == "WARD") "함께하고 있어요" else "보호자 홈") {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    Icon(
+                        imageVector = if (role == "WARD") Icons.Filled.Shield else Icons.Filled.Groups,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(28.dp)
+                    )
+                    Text(
+                        text = if (role == "WARD") {
+                            "이 기기는 보호자와 연결되어 회복을 지원받고 있습니다."
+                        } else {
+                            "연결된 피보호자의 상태를 확인하고 정책을 관리하세요."
+                        },
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                }
+            }
+
+            if (role == "WARD") {
+                PrimaryButton("권한 설정 점검", onOpenPermissionSetup)
+                SecondaryButton("보호자 연결 코드 보기", onOpenPairing)
+            } else {
+                PrimaryButton("대시보드 열기", onOpenDashboard)
+                SecondaryButton("피보호자 추가 연결하기", onOpenPairing)
+            }
         }
     }
 }

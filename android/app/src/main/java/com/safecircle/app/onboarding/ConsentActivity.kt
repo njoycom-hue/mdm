@@ -6,15 +6,27 @@ import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.VerifiedUser
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
 import com.safecircle.app.BuildConfig
@@ -22,6 +34,10 @@ import com.safecircle.app.MainActivity
 import com.safecircle.app.R
 import com.safecircle.app.network.ApiClient
 import com.safecircle.app.network.dto.ConsentEventRequest
+import com.safecircle.app.ui.components.PrimaryButton
+import com.safecircle.app.ui.components.SectionCard
+import com.safecircle.app.ui.components.Spacing
+import com.safecircle.app.ui.theme.SafeCircleTheme
 import kotlinx.coroutines.launch
 
 /**
@@ -33,7 +49,7 @@ class ConsentActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            MaterialTheme {
+            SafeCircleTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     ConsentScreen(onAgree = ::onAgree)
                 }
@@ -61,18 +77,64 @@ class ConsentActivity : ComponentActivity() {
 
 @Composable
 private fun ConsentScreen(onAgree: () -> Unit) {
+    val items = listOf(
+        R.string.consent_item_usage,
+        R.string.consent_item_sites,
+        R.string.consent_item_keywords,
+        R.string.consent_item_calls,
+        R.string.consent_item_location,
+    )
+
     Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
-        verticalArrangement = Arrangement.Center
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = Spacing.lg, vertical = Spacing.xl),
+        verticalArrangement = Arrangement.spacedBy(Spacing.lg)
     ) {
-        Text(stringResourceCompat(R.string.consent_title))
-        Text(stringResourceCompat(R.string.consent_body))
-        Button(onClick = onAgree) {
-            Text(stringResourceCompat(R.string.consent_agree))
+        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            Icon(
+                imageVector = Icons.Filled.VerifiedUser,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(56.dp)
+            )
         }
+        Text(
+            text = stringResource(R.string.consent_title),
+            style = MaterialTheme.typography.headlineSmall,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Text(
+            text = stringResource(R.string.consent_subtitle),
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        SectionCard(title = "공유되는 정보") {
+            items.forEach { resId ->
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.CheckCircle,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.secondary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Text(stringResource(resId), style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+        }
+
+        Text(
+            text = stringResource(R.string.consent_revocable),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.tertiary
+        )
+
+        PrimaryButton(stringResource(R.string.consent_agree), onAgree)
     }
 }
-
-@Composable
-private fun stringResourceCompat(id: Int): String =
-    androidx.compose.ui.platform.LocalContext.current.getString(id)

@@ -1,4 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.SafeCircle" parent="android:Theme.Material.Light.NoActionBar" />
+    <!-- Compose가 실제 테마(SafeCircleTheme)를 그리기 전까지 시스템이 보여주는 배경/상태바 색.
+         화면 콘텐츠 자체의 색/타이포는 ui/theme/Theme.kt의 SafeCircleTheme이 담당한다. -->
+    <style name="Theme.SafeCircle" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/brand_background</item>
+        <item name="android:statusBarColor">@color/brand_status_bar</item>
+        <item name="android:navigationBarColor">@color/brand_background</item>
+    </style>
 </resources>

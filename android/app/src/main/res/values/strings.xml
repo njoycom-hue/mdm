@@ -4,6 +4,12 @@
     <string name="monitoring_notification_title">SafeCircle 모니터링 중</string>
     <string name="monitoring_notification_text">이 기기는 회복 지원을 위해 보호자와 연결되어 있습니다.</string>
     <string name="consent_title">시작하기 전에 동의가 필요합니다</string>
-    <string name="consent_body">SafeCircle은 본인의 동의 하에 앱 사용시간, 특정 앱 차단, 방문 사이트, 설정한 키워드가 포함된 알림/문자 감지, 통화 시간·상대 번호, 위치 정보를 보호자와 공유합니다. 동의는 언제든 철회할 수 있습니다.</string>
+    <string name="consent_subtitle">SafeCircle은 본인의 동의 하에만 아래 정보를 보호자와 공유합니다.</string>
+    <string name="consent_item_usage">앱 사용시간 및 특정 앱 차단 여부</string>
+    <string name="consent_item_sites">방문한 사이트(도메인 단위)</string>
+    <string name="consent_item_keywords">설정한 키워드가 포함된 알림/문자 감지 (원문은 저장하지 않음)</string>
+    <string name="consent_item_calls">통화 시간과 상대 번호 (통화 내용은 수집하지 않음)</string>
+    <string name="consent_item_location">위치 정보</string>
+    <string name="consent_revocable">동의는 언제든 철회할 수 있습니다.</string>
     <string name="consent_agree">동의하고 계속하기</string>
 </resources>
