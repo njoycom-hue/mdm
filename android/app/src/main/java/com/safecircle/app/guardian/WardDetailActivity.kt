@@ -163,6 +163,7 @@ class WardDetailActivity : ComponentActivity() {
 }
 
 private val PHISHING_KEYWORDS = listOf("검찰청", "금융감독원", "계좌이체", "안전계좌", "압류", "개인정보 확인", "지급정지")
+private const val DEFAULT_MANUAL_TIME_LIMIT_MINUTES = 30
 
 @Composable
 private fun WardDetailScreen(
@@ -191,6 +192,8 @@ private fun WardDetailScreen(
     val watchedPackages = remember { mutableListOf<String>().toMutableStateList() }
     val timeLimits = remember { mutableStateMapOf<String, Int>() }
     var manualPackageInput by remember { mutableStateOf("") }
+    var manualWatchedPackageInput by remember { mutableStateOf("") }
+    var manualTimeLimitPackageInput by remember { mutableStateOf("") }
     var blockedDomainsInput by remember { mutableStateOf("") }
     var isSaving by remember { mutableStateOf(false) }
 
@@ -271,14 +274,18 @@ private fun WardDetailScreen(
                 }
 
                 SectionCard(title = "앱별 사용시간 제한") {
+                    Text(
+                        "하루 사용시간(분)을 입력하면 초과 시 해당 앱을 홈으로 튕겨냅니다. 0 또는 빈 값은 제한 없음입니다.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                     if (pickableApps.isEmpty()) {
-                        EmptyStateText("아직 사용시간 데이터가 없습니다. 잠시 후 다시 확인해주세요.")
-                    } else {
-                        Text(
-                            "하루 사용시간(분)을 입력하면 초과 시 해당 앱을 홈으로 튕겨냅니다. 0 또는 빈 값은 제한 없음입니다.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        EmptyStateText(
+                            "아직 피보호자 기기의 사용시간 데이터가 도착하지 않았습니다(최초 동기화까지 " +
+                                "몇 분 걸릴 수 있어요). 기다리지 않고 지금 바로 설정하려면 아래에 패키지명을 " +
+                                "직접 입력해 추가하세요."
                         )
+                    } else {
                         pickableApps.forEach { app ->
                             TimeLimitRow(
                                 app = app,
@@ -290,13 +297,28 @@ private fun WardDetailScreen(
                             )
                         }
                     }
+                    OutlinedTextField(
+                        value = manualTimeLimitPackageInput,
+                        onValueChange = { manualTimeLimitPackageInput = it },
+                        label = { Text("목록에 없는 앱 (패키지명)") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    SecondaryButton("30분 제한으로 추가", onClick = {
+                        val pkg = manualTimeLimitPackageInput.trim()
+                        if (pkg.isNotEmpty()) timeLimits[pkg] = DEFAULT_MANUAL_TIME_LIMIT_MINUTES
+                        manualTimeLimitPackageInput = ""
+                    })
                 }
             }
 
             if (profileType == PROFILE_ADDICT) {
                 SectionCard(title = "차단할 앱 선택") {
                     if (pickableApps.isEmpty()) {
-                        EmptyStateText("아직 사용시간 데이터가 없습니다. 잠시 후 다시 확인해주세요.")
+                        EmptyStateText(
+                            "아직 피보호자 기기의 사용시간 데이터가 도착하지 않았습니다(최초 동기화까지 " +
+                                "몇 분 걸릴 수 있어요). 기다리지 않고 지금 바로 차단하려면 아래에 패키지명을 " +
+                                "직접 입력해 추가하세요."
+                        )
                     } else {
                         Text(
                             "체크한 앱은 실행 즉시 홈으로 이동시켜 완전히 막습니다.",
@@ -335,7 +357,10 @@ private fun WardDetailScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     if (pickableApps.isEmpty()) {
-                        EmptyStateText("아직 사용시간 데이터가 없습니다.")
+                        EmptyStateText(
+                            "아직 피보호자 기기의 사용시간 데이터가 도착하지 않았습니다. 아래에 패키지명을 " +
+                                "직접 입력해 지금 바로 추가할 수 있습니다."
+                        )
                     } else {
                         pickableApps.forEach { app ->
                             AppPickRow(
@@ -348,6 +373,17 @@ private fun WardDetailScreen(
                             )
                         }
                     }
+                    OutlinedTextField(
+                        value = manualWatchedPackageInput,
+                        onValueChange = { manualWatchedPackageInput = it },
+                        label = { Text("목록에 없는 앱 (패키지명)") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    SecondaryButton("추가", onClick = {
+                        val pkg = manualWatchedPackageInput.trim()
+                        if (pkg.isNotEmpty() && !watchedPackages.contains(pkg)) watchedPackages.add(pkg)
+                        manualWatchedPackageInput = ""
+                    })
                 }
             }
 

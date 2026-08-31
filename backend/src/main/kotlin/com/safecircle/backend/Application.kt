@@ -27,6 +27,7 @@ import io.ktor.server.plugins.statuspages.StatusPages
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
+import kotlinx.serialization.json.Json
 
 // EngineMain(비수동 embeddedServer가 아니라)을 써야 resources/application.conf의
 // HOCON 설정(auth.jwtSecret 등)이 실제로 로드된다 — embeddedServer(Netty, module=...)를
@@ -34,7 +35,12 @@ import io.ktor.server.routing.routing
 fun main(args: Array<String>): Unit = EngineMain.main(args)
 
 fun Application.module() {
-    install(ContentNegotiation) { json() }
+    // ignoreUnknownKeys=true: 안드로이드 앱이 백엔드보다 먼저(또는 나중에) 배포되는 순간이
+    // 항상 있을 수밖에 없다 — 요청 바디에 서버가 아직 모르는 필드가 하나만 섞여 있어도
+    // kotlinx.serialization 기본값(엄격 모드)은 전체 요청을 500으로 실패시킨다. 실제로
+    // profileType/watchedPackages 필드를 추가한 뒤 배포 전 잠깐 이 문제로 정책 저장이
+    // 500으로 죽었다.
+    install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
     install(CallLogging)
     install(StatusPages) {
         exception<com.safecircle.backend.security.ForbiddenRoleException> { call, cause ->
