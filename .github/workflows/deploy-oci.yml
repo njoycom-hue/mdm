@@ -15,6 +15,9 @@ name: OCI 백엔드 배포
 # 사전 준비 (Settings → Secrets and variables → Actions):
 #   OCI_HOST / OCI_USER / OCI_SSH_KEY : OCI 인스턴스 접속 정보 (duruone과 같은 서버면
 #                                        같은 값, 새 서버면 새로 발급)
+#   OCI_SSH_PASSPHRASE                : (선택) 개인키가 비밀번호로 잠겨있는 경우에만 등록.
+#                                        잠겨있지 않은 키면 이 시크릿 자체를 등록하지 않아도 됨
+#                                        (비어있으면 자동으로 무시됨).
 #   DATABASE_PASSWORD                 : 운영 Postgres 비밀번호 (최초 1회 정하면 이후 고정)
 #   JWT_SECRET                        : 운영 JWT 서명 키 (openssl rand -hex 32 로 생성 권장)
 #
@@ -47,6 +50,7 @@ jobs:
           host: ${{ secrets.OCI_HOST }}
           username: ${{ secrets.OCI_USER }}
           key: ${{ secrets.OCI_SSH_KEY }}
+          passphrase: ${{ secrets.OCI_SSH_PASSPHRASE }}
           source: "backend/*"
           target: "/opt/safecircle-backend"
           strip_components: 1
@@ -58,6 +62,7 @@ jobs:
           host: ${{ secrets.OCI_HOST }}
           username: ${{ secrets.OCI_USER }}
           key: ${{ secrets.OCI_SSH_KEY }}
+          passphrase: ${{ secrets.OCI_SSH_PASSPHRASE }}
           envs: DATABASE_PASSWORD,JWT_SECRET
           script: |
             set -e
