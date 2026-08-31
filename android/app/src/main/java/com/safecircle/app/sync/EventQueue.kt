@@ -4,27 +4,54 @@ import android.content.Context
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
-import com.safecircle.app.network.dto.KeywordAlertDto
+import com.safecircle.app.data.local.AppDatabase
+import com.safecircle.app.data.local.entities.PendingCallEvent
+import com.safecircle.app.data.local.entities.PendingKeywordAlert
+import com.safecircle.app.data.local.entities.PendingUsageEvent
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 
 /**
- * 이벤트를 즉시 서버로 보내지 않고 로컬에 쌓아 UploadWorker가 배치로 업로드한다.
- * 키워드 매치처럼 긴급한 이벤트는 즉시 업로드용 큐에 별도로 표시한다.
+ * 이벤트를 즉시 서버로 보내지 않고 Room에 쌓아 UploadWorker가 배치로 업로드한다.
+ * 키워드 매치처럼 긴급한 이벤트는 저장 직후 즉시 업로드를 트리거한다.
  */
 class EventQueue(private val context: Context) {
 
+    private val dao = AppDatabase.get(context).pendingEventDao()
+    private val scope = CoroutineScope(Dispatchers.IO)
+
     fun enqueueKeywordAlert(sourceApp: String, matchedKeywords: List<String>) {
-        val alert = KeywordAlertDto(
-            sourceApp = sourceApp,
-            matchedKeywords = matchedKeywords,
-            occurredAtEpochMs = System.currentTimeMillis()
-        )
-        // TODO: Room DB에 alert 저장 (urgent = true)
-        UploadWorker.enqueueImmediate(context)
+        scope.launch {
+            dao.insertKeywordAlert(
+                PendingKeywordAlert(
+                    sourceApp = sourceApp,
+                    matchedKeywordsCsv = matchedKeywords.joinToString(","),
+                    occurredAtEpochMs = System.currentTimeMillis()
+                )
+            )
+            UploadWorker.enqueueImmediate(context)
+        }
     }
 
-    fun enqueueUsageSnapshot(/* TODO: UsageStatsSnapshot */) {
-        // TODO: Room DB에 배치 저장, PeriodicWorkRequest가 5~15분마다 처리
+    fun enqueueUsageSnapshot(packageName: String, foregroundMillis: Long, lastUsedEpochMs: Long) {
+        scope.launch {
+            dao.insertUsage(PendingUsageEvent(packageName = packageName, foregroundMillis = foregroundMillis, lastUsedEpochMs = lastUsedEpochMs))
+        }
+    }
+
+    fun enqueueCallEvent(direction: String, counterpartNumber: String?, startedAtEpochMs: Long, durationSeconds: Long?) {
+        scope.launch {
+            dao.insertCallEvent(
+                PendingCallEvent(
+                    direction = direction,
+                    counterpartNumber = counterpartNumber,
+                    startedAtEpochMs = startedAtEpochMs,
+                    durationSeconds = durationSeconds
+                )
+            )
+        }
     }
 
     companion object {

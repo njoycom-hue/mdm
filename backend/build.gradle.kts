@@ -35,6 +35,7 @@ dependencies {
     implementation("com.zaxxer:HikariCP:5.1.0")
 
     implementation("com.google.firebase:firebase-admin:9.3.0")
+    implementation("org.mindrot:jbcrypt:0.4")
 
     implementation("ch.qos.logback:logback-classic:1.5.6")
 

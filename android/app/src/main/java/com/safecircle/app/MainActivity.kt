@@ -16,42 +16,84 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.lifecycleScope
+import com.google.firebase.messaging.FirebaseMessaging
+import com.safecircle.app.auth.AuthActivity
+import com.safecircle.app.auth.TokenStore
+import com.safecircle.app.network.ApiClient
+import com.safecircle.app.network.dto.RegisterFcmTokenRequest
 import com.safecircle.app.onboarding.ConsentActivity
 import com.safecircle.app.onboarding.ConsentStore
+import com.safecircle.app.pairing.PairingActivity
+import com.safecircle.app.permissions.PermissionSetupActivity
+import com.safecircle.app.sync.EventQueue
+import com.safecircle.app.sync.SettingsSyncWorker
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        if (!ConsentStore(this).hasConsented()) {
+        val tokenStore = TokenStore(this)
+        if (!tokenStore.isLoggedIn()) {
+            startActivity(Intent(this, AuthActivity::class.java))
+            finish()
+            return
+        }
+
+        val role = tokenStore.role()
+        if (role == "WARD" && !ConsentStore(this).hasConsented()) {
             startActivity(Intent(this, ConsentActivity::class.java))
             finish()
             return
         }
 
+        if (role == "WARD") {
+            EventQueue.schedulePeriodicUpload(this)
+            SettingsSyncWorker.schedulePeriodicSync(this)
+        }
+        registerFcmTokenIfNeeded()
+
         setContent {
             MaterialTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    HomeScreen()
+                    HomeScreen(
+                        role = role ?: "WARD",
+                        onOpenPermissionSetup = { startActivity(Intent(this, PermissionSetupActivity::class.java)) },
+                        onOpenPairing = { startActivity(Intent(this, PairingActivity::class.java)) }
+                    )
                 }
             }
+        }
+    }
+
+    private fun registerFcmTokenIfNeeded() {
+        lifecycleScope.launch {
+            runCatching { FirebaseMessaging.getInstance().token.await() }
+                .onSuccess { token ->
+                    runCatching { ApiClient.get(this@MainActivity).service.registerFcmToken(RegisterFcmTokenRequest(token)) }
+                }
         }
     }
 }
 
 @Composable
-private fun HomeScreen() {
+private fun HomeScreen(role: String, onOpenPermissionSetup: () -> Unit, onOpenPairing: () -> Unit) {
     Column(
         modifier = Modifier.fillMaxSize().padding(24.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text("SafeCircle")
-        Text("설정 마법사와 보호자 대시보드는 추후 구현 예정입니다.")
-        // TODO: 권한 상태 점검 화면 (Accessibility/Device Admin/VPN/Notification Listener 활성화 유도)
-        Button(onClick = { /* TODO: 권한 안내 플로우로 이동 */ }) {
-            Text("권한 설정 시작")
+        if (role == "WARD") {
+            Text("이 기기는 보호자와 연결되어 회복을 지원받고 있습니다.")
+            Button(onClick = onOpenPermissionSetup) { Text("권한 설정 점검") }
+            Button(onClick = onOpenPairing) { Text("보호자 연결 코드 보기") }
+        } else {
+            Text("연결된 피보호자의 상태 대시보드는 추후 구현 예정입니다.")
+            Button(onClick = onOpenPairing) { Text("피보호자 연결하기") }
         }
     }
 }

@@ -2,11 +2,13 @@ package com.safecircle.app.accessibility
 
 import android.accessibilityservice.AccessibilityService
 import android.view.accessibility.AccessibilityEvent
+import android.widget.Toast
+import com.safecircle.app.settings.PolicyRepository
 import com.safecircle.app.sync.EventQueue
 import com.safecircle.app.sync.KeywordMatcher
 
 /**
- * 앱 전환 감지(차단 대상 앱 실행 시 오버레이) + 화면 텍스트 키워드 매칭을 담당한다.
+ * 앱 전환 감지(차단 대상 앱 실행 시 홈으로 이동) + 화면 텍스트 키워드 매칭을 담당한다.
  * READ_SMS/READ_CALL_LOG 권한을 쓰지 않고 화면에 보이는 텍스트만 훑는 이유는
  * docs/ARCHITECTURE.md의 정책 준수 원칙 참고.
  */
@@ -14,11 +16,14 @@ class MonitorAccessibilityService : AccessibilityService() {
 
     private lateinit var keywordMatcher: KeywordMatcher
     private lateinit var eventQueue: EventQueue
+    private lateinit var policyRepository: PolicyRepository
+    private var lastBlockedPackage: String? = null
 
     override fun onServiceConnected() {
         super.onServiceConnected()
         keywordMatcher = KeywordMatcher(applicationContext)
         eventQueue = EventQueue(applicationContext)
+        policyRepository = PolicyRepository(applicationContext)
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -33,7 +38,20 @@ class MonitorAccessibilityService : AccessibilityService() {
     }
 
     private fun handleForegroundApp(packageName: String) {
-        // TODO: BlockList.isBlocked(packageName) 이면 performGlobalAction(GLOBAL_ACTION_HOME) 또는 차단 오버레이 표시
+        if (packageName == this.packageName) {
+            lastBlockedPackage = null
+            return
+        }
+        if (packageName !in policyRepository.blockedPackages()) {
+            lastBlockedPackage = null
+            return
+        }
+        // 같은 앱을 계속 재시도하며 홈으로 튕기는 루프를 한 번만 알리도록 방지
+        if (lastBlockedPackage != packageName) {
+            Toast.makeText(this, "SafeCircle에 의해 차단된 앱입니다.", Toast.LENGTH_SHORT).show()
+        }
+        lastBlockedPackage = packageName
+        performGlobalAction(GLOBAL_ACTION_HOME)
     }
 
     private fun handleScreenText(packageName: String, event: AccessibilityEvent) {

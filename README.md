@@ -32,6 +32,20 @@ docs/      - 아키텍처, 법적 검토 문서
 
 자세한 내용은 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), 비용/수익 전략은 커밋 히스토리 및 팀 채널 참고.
 
+## 구현 상태
+
+- ✅ 인증(JWT 발급/검증, bcrypt 해싱), 회원가입/로그인
+- ✅ 페어링(피감독자 코드 발급 → 보호자 입력으로 연결), TTL 만료 처리
+- ✅ 동의 기록 API, 로컬 Room 큐 + `WorkManager` 배치 업로드/삭제
+- ✅ 키워드/차단앱/차단도메인 정책 서버 저장(`WardSettings`) + 클라이언트 주기 동기화(`SettingsSyncWorker`)
+- ✅ 키워드 매치 시 FCM 즉시 푸시 (페어링된 보호자 전원에게)
+- ✅ 접근성 서비스 기반 앱 차단(`GLOBAL_ACTION_HOME`)
+- ✅ VPN 기반 DNS 도메인 차단 — 전체 트래픽이 아니라 가짜 DNS 서버 주소만 라우팅해 질의만 가로채고, 나머지 트래픽은 일반 네트워크로 직접 나감 (`docs/ARCHITECTURE.md` VPN 섹션 참고)
+- ✅ 권한 설정 화면(사용정보/접근성/기기관리자/알림접근/VPN 유도), 재부팅 후 VPN 자동 재시작
+- ⬜ 통화 방향(발신/수신) 구분 정교화 — 현재는 CALL_LOG 없이 상태 브로드캐스트만으로 완료/부재중만 구분
+- ⬜ 보호자용 대시보드 UI (현재는 자리표시자 화면만 존재)
+- ⬜ Firebase 실 프로젝트 연결 — `android/app/google-services.json`은 플레이스홀더이므로 실제 배포 전 교체 필요
+
 ## 로컬 개발
 
 ```bash

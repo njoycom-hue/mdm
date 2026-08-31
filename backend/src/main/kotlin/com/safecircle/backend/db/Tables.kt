@@ -52,3 +52,31 @@ object CallEvents : UUIDTable("call_events") {
     val startedAt = timestamp("started_at")
     val durationSeconds = long("duration_seconds").nullable()
 }
+
+/** 피감독자가 발급한 1회용 페어링 코드. TTL 만료 또는 claimed 이후 재사용 불가. */
+object PairingCodes : UUIDTable("pairing_codes") {
+    val code = varchar("code", 6).uniqueIndex()
+    val wardId = reference("ward_id", Users)
+    val expiresAt = timestamp("expires_at")
+    val claimedAt = timestamp("claimed_at").nullable()
+}
+
+/** 사용자별 FCM 토큰. 한 사용자가 여러 기기를 쓸 수 있어 (userId, token) 복합 유니크. */
+object DeviceTokens : UUIDTable("device_tokens") {
+    val userId = reference("user_id", Users)
+    val fcmToken = varchar("fcm_token", 512)
+    val updatedAt = timestamp("updated_at")
+
+    init {
+        uniqueIndex(userId, fcmToken)
+    }
+}
+
+/** 보호자가 설정하는 피감독자별 감시 정책 (키워드, 차단 앱/도메인). */
+object WardSettings : UUIDTable("ward_settings") {
+    val wardId = reference("ward_id", Users).uniqueIndex()
+    val keywordsCsv = text("keywords_csv").default("")
+    val blockedPackagesCsv = text("blocked_packages_csv").default("")
+    val blockedDomainsCsv = text("blocked_domains_csv").default("")
+    val updatedAt = timestamp("updated_at")
+}

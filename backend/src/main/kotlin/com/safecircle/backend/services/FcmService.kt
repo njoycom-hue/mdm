@@ -14,14 +14,19 @@ import java.io.FileInputStream
  */
 object FcmService {
 
-    fun init(serviceAccountPath: String) {
-        if (FirebaseApp.getApps().isNotEmpty()) return
+    private var initialized = false
+
+    /** serviceAccountPath가 비어있으면 조용히 스킵한다 — 로컬 개발 시 Firebase 자격증명 없이도 서버가 뜨도록. */
+    fun init(serviceAccountPath: String?) {
+        if (serviceAccountPath.isNullOrBlank() || FirebaseApp.getApps().isNotEmpty()) return
         val credentials = GoogleCredentials.fromStream(FileInputStream(serviceAccountPath))
         val options = FirebaseOptions.builder().setCredentials(credentials).build()
         FirebaseApp.initializeApp(options)
+        initialized = true
     }
 
     fun sendKeywordAlert(guardianFcmToken: String, wardName: String, matchedKeywords: List<String>) {
+        if (!initialized) return
         val message = Message.builder()
             .setToken(guardianFcmToken)
             .setNotification(

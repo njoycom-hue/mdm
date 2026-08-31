@@ -19,8 +19,10 @@ backend/*.iml
 *.env
 .env.local
 **/secrets.properties
-**/google-services.json
 **/*serviceAccountKey*.json
+# NOTE: android/app/google-services.json is intentionally tracked as a placeholder
+# (fake project/keys) so the project builds out of the box. Replace its contents with
+# your real Firebase config locally, but do not commit the replaced (real) file.
 
 # OS
 .DS_Store
